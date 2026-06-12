@@ -1,0 +1,1434 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Luismi Bro</title>
+<style>
+  :root{
+    --azul-noche:#10142b;
+    --crema:#fff6e8;
+    --cereza:#ff7aa2;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:var(--azul-noche);
+    background-image:
+      radial-gradient(circle at 20% 30%, rgba(255,122,162,.10) 0 2px, transparent 3px),
+      radial-gradient(circle at 70% 60%, rgba(255,122,162,.10) 0 2px, transparent 3px),
+      radial-gradient(circle at 45% 85%, rgba(255,255,255,.08) 0 1px, transparent 2px);
+    background-size:240px 240px, 320px 320px, 180px 180px;
+    display:flex;align-items:center;justify-content:center;
+    font-family:'Courier New', Courier, monospace;
+    color:var(--crema);
+    touch-action:manipulation;
+  }
+  #wrap{position:relative;width:min(96vw,960px)}
+  canvas{
+    display:block;width:100%;height:auto;
+    image-rendering:pixelated;image-rendering:crisp-edges;
+    border:4px solid var(--crema);
+    box-shadow:0 0 0 4px var(--azul-noche),0 0 0 8px var(--cereza),0 18px 40px rgba(0,0,0,.6);
+    background:#f1e7d2;
+  }
+  .overlay{
+    position:absolute;inset:4px;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:16px;text-align:center;
+    background:rgba(16,20,43,.92);padding:24px;z-index:5;
+  }
+  .hidden{display:none !important}
+  h1{
+    font-size:clamp(28px,5.4vw,52px);letter-spacing:2px;line-height:1.1;
+    color:var(--cereza);
+    text-shadow:3px 3px 0 #6e1f3a, 6px 6px 0 rgba(0,0,0,.45);
+    text-transform:uppercase;
+  }
+  h2{font-size:clamp(22px,4vw,38px);color:var(--crema);text-shadow:3px 3px 0 rgba(0,0,0,.5)}
+  .sub{color:#ffd9e4;font-size:clamp(13px,1.8vw,16px);max-width:580px;line-height:1.55}
+  .keys{
+    font-size:clamp(11px,1.5vw,15px);line-height:1.9;color:var(--crema);
+    border:2px dashed var(--cereza);padding:10px 18px;background:rgba(0,0,0,.25);
+  }
+  .keys b{color:#ffe28a}
+  button{
+    font-family:inherit;font-weight:bold;cursor:pointer;
+    font-size:clamp(16px,2.4vw,22px);letter-spacing:2px;text-transform:uppercase;
+    color:var(--azul-noche);background:var(--cereza);
+    border:none;padding:14px 42px;
+    box-shadow:0 6px 0 #6e1f3a;
+    transition:transform .05s ease;
+  }
+  button:hover{filter:brightness(1.08)}
+  button:active{transform:translateY(6px);box-shadow:0 0 0 #6e1f3a}
+  .badge{font-size:12px;letter-spacing:3px;color:#9fb0ff;text-transform:uppercase}
+
+  /* ---- botón de pausa ---- */
+  #btn-pause{
+    position:absolute;top:14px;right:14px;z-index:4;
+    width:46px;height:46px;padding:0;font-size:18px;
+    background:rgba(16,20,43,.65);color:var(--crema);
+    box-shadow:0 3px 0 rgba(0,0,0,.5);
+    border:2px solid var(--crema);
+  }
+  #btn-pause:active{transform:translateY(3px);box-shadow:none}
+
+  /* ---- controles táctiles ---- */
+  #touch{
+    position:absolute;left:0;right:0;bottom:10px;z-index:4;
+    display:flex;justify-content:space-between;align-items:flex-end;
+    padding:0 12px;pointer-events:none;
+  }
+  .tc{display:flex;gap:14px;pointer-events:auto}
+  .tbtn{
+    width:74px;height:74px;border-radius:50%;
+    background:rgba(16,20,43,.55);color:var(--crema);
+    border:3px solid rgba(255,246,232,.85);
+    font-size:26px;font-weight:bold;padding:0;
+    box-shadow:0 4px 0 rgba(0,0,0,.45);
+    touch-action:none;user-select:none;-webkit-user-select:none;
+  }
+  .tbtn:active{background:rgba(255,122,162,.55);transform:translateY(3px);box-shadow:none}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game" width="960" height="540"></canvas>
+
+  <button id="btn-pause" class="hidden" aria-label="Pausa">❚❚</button>
+
+  <div id="touch" class="hidden">
+    <div class="tc">
+      <button class="tbtn" data-k="ArrowLeft">◀</button>
+      <button class="tbtn" data-k="ArrowRight">▶</button>
+    </div>
+    <div class="tc">
+      <button class="tbtn" data-k="KeyX">🥪</button>
+      <button class="tbtn" data-k="Space">⬆</button>
+    </div>
+  </div>
+
+  <div id="screen-start" class="overlay">
+    <div class="badge">IES Valle del Jerte presenta</div>
+    <h1>Luismi Bro</h1>
+    <p class="sub">Luismi, el conserje, recorre el pasillo del instituto saltando pupitres, cajoneras
+    y pilas de libros. Entre alumnos revoltosos, gatos del insti y profes pidiendo la llave,
+    al fondo le espera la profesora de Lengua... y necesita fotocopias.</p>
+    <div class="keys">
+      <b>← →</b> correr · <b>ESPACIO</b> saltar (mantén para saltar más alto) · <b>X / Z</b> lanzar · <b>ESC</b> pausa<br>
+      En móvil/tablet: usa los <b>botones táctiles</b> en pantalla.<br>
+      Choca con los <b>alumnos amigos</b> para conseguir el poder de disparo.<br>
+      Pisa a los enemigos: <b>alumnos</b> que lanzan comida, <b>gatos</b> que se abalanzan y <b>profes</b> que piden la llave.
+    </div>
+    <button id="btn-start">Jugar</button>
+  </div>
+
+  <div id="screen-over" class="overlay hidden">
+    <h2>GAME OVER</h2>
+    <p class="sub">Luismi se ha ido a tomarse un café a conserjería. El pasillo queda sin vigilancia...</p>
+    <button id="btn-retry">Reintentar</button>
+  </div>
+
+  <div id="screen-win" class="overlay hidden">
+    <h1 style="font-size:clamp(22px,4vw,40px)">¡Victoria!<br>Las fotocopias pueden esperar</h1>
+    <p class="sub">La profesora de Lengua acepta la derrota con dignidad gramatical.
+    Luismi vuelve a su garita como el auténtico jefe del pasillo.</p>
+    <button id="btn-again">Jugar otra vez</button>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+/* ============================== BASE ============================== */
+const cv = document.getElementById('game');
+const ctx = cv.getContext('2d');
+const W = cv.width, H = cv.height;
+
+const scrStart = document.getElementById('screen-start');
+const scrOver  = document.getElementById('screen-over');
+const scrWin   = document.getElementById('screen-win');
+const btnPause = document.getElementById('btn-pause');
+const touchUI  = document.getElementById('touch');
+
+const GRAV = 0.55;
+const LEVEL_W = 6800;
+const GROUND_Y = 470;
+
+let state = 'menu';          // menu | play | win | over
+let paused = false;
+let frame = 0;
+let camX = 0;
+let jumpBuf = 0;
+
+/* ============================== AUDIO ============================== */
+let actx = null;
+function audioInit(){
+  if(!actx){
+    try{ actx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ actx = null; }
+  }
+  if(actx && actx.state === 'suspended'){ actx.resume().catch(()=>{}); }
+}
+function sfx(freq,dur,type,slideTo){
+  if(!actx) return;
+  try{
+    const t = actx.currentTime;
+    const o = actx.createOscillator();
+    const g = actx.createGain();
+    o.type = type || 'square';
+    o.frequency.setValueAtTime(freq,t);
+    if(slideTo) o.frequency.exponentialRampToValueAtTime(Math.max(40,slideTo), t+dur);
+    g.gain.setValueAtTime(0.07,t);
+    g.gain.exponentialRampToValueAtTime(0.001, t+dur);
+    o.connect(g); g.connect(actx.destination);
+    o.start(t); o.stop(t+dur);
+  }catch(e){}
+}
+const sndJump   = ()=>sfx(440,0.18,'square',720);
+const sndShoot  = ()=>sfx(880,0.10,'square',1200);
+const sndStomp  = ()=>sfx(300,0.16,'triangle',90);
+const sndHurt   = ()=>sfx(160,0.30,'sawtooth',60);
+const sndMiau   = ()=>sfx(900,0.16,'triangle',520);
+const sndPower  = ()=>{sfx(523,0.10,'square');setTimeout(()=>sfx(659,0.10,'square'),90);setTimeout(()=>sfx(784,0.16,'square'),180);};
+const sndBossHit= ()=>sfx(220,0.20,'sawtooth',110);
+const sndWin    = ()=>{[523,659,784,1046].forEach((f,i)=>setTimeout(()=>sfx(f,0.22,'square'),i*140));};
+
+/* ============================== INPUT ============================== */
+const keys = {};
+addEventListener('keydown', e=>{
+  if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown',' '].includes(e.key)) e.preventDefault();
+  if((e.code==='Space' || e.code==='ArrowUp') && !keys[e.code]) jumpBuf = 8; // buffer de salto
+  if(e.code==='Escape') togglePause();
+  keys[e.code] = true;
+});
+addEventListener('keyup', e=>{ keys[e.code] = false; });
+
+// controles táctiles
+const hasTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+if(hasTouch) touchUI.classList.remove('hidden');
+document.querySelectorAll('.tbtn').forEach(btn=>{
+  const k = btn.dataset.k;
+  const down = e=>{
+    e.preventDefault();
+    audioInit();
+    if(k==='Space' && !keys[k]) jumpBuf = 8;
+    keys[k] = true;
+  };
+  const up = e=>{ e.preventDefault(); keys[k] = false; };
+  btn.addEventListener('pointerdown', down);
+  btn.addEventListener('pointerup', up);
+  btn.addEventListener('pointercancel', up);
+  btn.addEventListener('pointerleave', up);
+  btn.addEventListener('contextmenu', e=>e.preventDefault());
+});
+
+function togglePause(){
+  if(state !== 'play') return;
+  paused = !paused;
+  btnPause.textContent = paused ? '▶' : '❚❚';
+}
+btnPause.addEventListener('click', ()=>{ audioInit(); togglePause(); });
+
+/* ============================== NIVEL ============================== */
+// Suelo sólido (con fosos hacia el sótano entre segmentos)
+const solids = [
+  {x:0,    y:GROUND_Y, w:1500, h:120},
+  {x:1620, y:GROUND_Y, w:900,  h:120},
+  {x:2660, y:GROUND_Y, w:1100, h:120},
+  {x:3900, y:GROUND_Y, w:800,  h:120},
+  {x:4840, y:GROUND_Y, w:1960, h:120}
+];
+
+// Plataformas de una dirección (se aterriza desde arriba)
+const platforms = [
+  {x:400,  y:378, w:130, h:14, type:'desk'},
+  {x:620,  y:330, w:110, h:14, type:'books'},
+  {x:800,  y:378, w:130, h:14, type:'desk'},
+  {x:1100, y:380, w:90,  h:14, type:'drawer'},
+  {x:1505, y:360, w:130, h:14, type:'desk'},
+  {x:1760, y:380, w:110, h:14, type:'books'},
+  {x:1950, y:330, w:130, h:14, type:'desk'},
+  {x:2160, y:280, w:110, h:14, type:'books'},
+  {x:2330, y:380, w:90,  h:14, type:'drawer'},
+  {x:2545, y:350, w:130, h:14, type:'desk'},
+  {x:2810, y:380, w:110, h:14, type:'books'},
+  {x:3010, y:330, w:130, h:14, type:'desk'},
+  {x:3220, y:330, w:130, h:14, type:'desk'},
+  {x:3430, y:280, w:110, h:14, type:'books'},
+  {x:3650, y:380, w:90,  h:14, type:'drawer'},
+  {x:3775, y:340, w:130, h:14, type:'desk'},
+  {x:4010, y:380, w:110, h:14, type:'books'},
+  {x:4210, y:330, w:130, h:14, type:'desk'},
+  {x:4430, y:280, w:110, h:14, type:'books'},
+  {x:4715, y:350, w:130, h:14, type:'desk'},
+  {x:5010, y:380, w:90,  h:14, type:'drawer'},
+  {x:5210, y:330, w:130, h:14, type:'desk'},
+  {x:5460, y:380, w:110, h:14, type:'books'}
+];
+
+const checkpoints = [80, 1700, 2750, 3980, 4920];
+
+// Decoración del pasillo del instituto (coordenadas de mundo)
+const decor = [
+  {x:140,  type:'window'},  {x:430,  type:'lockers'}, {x:700,  type:'poster', c:0},
+  {x:900,  type:'door', sign:'AULA 1'},
+  {x:1180, type:'window'},  {x:1430, type:'extintor'},{x:1660, type:'board'},
+  {x:1940, type:'lockers'}, {x:2210, type:'window'},  {x:2460, type:'clock'},
+  {x:2640, type:'poster', c:1},
+  {x:2880, type:'door', sign:'AULA 2'},
+  {x:3160, type:'window'},  {x:3420, type:'lockers'}, {x:3700, type:'poster', c:2},
+  {x:3940, type:'window'},  {x:4200, type:'door', sign:'LAB FP'},
+  {x:4470, type:'board'},   {x:4720, type:'window'},  {x:4990, type:'lockers'},
+  {x:5240, type:'extintor'},{x:5450, type:'window'},  {x:5720, type:'poster', c:0},
+  {x:5960, type:'clock'},   {x:6180, type:'window'},
+  {x:6480, type:'door', sign:'FOTOCOPIAS'}
+];
+
+const worldTexts = [
+  {x:120,  y:260, t:'← → mover · ESPACIO saltar (mantén)'},
+  {x:430,  y:240, t:'¡Choca con el alumno amigo!'},
+  {x:5550, y:230, t:'Algo se oye al fondo del pasillo...'}
+];
+
+/* ============================== ENTIDADES ============================== */
+let player, enemies, friends, shots, enemyShots, papers, floats, particles, motes, boss, bossActive;
+
+function makeEnemy(kind, minX, maxX, surfY, color){
+  const base = {
+    kind:kind, minX:minX, maxX:maxX, dir:1, dead:false, squash:0, color:color
+  };
+  if(kind === 'gato'){
+    return Object.assign(base, {
+      x:minX, y:surfY-20, w:32, h:20,
+      speed:1.5 + Math.random()*0.5,
+      color2: color === '#d98a3d' ? '#b06a25' : (color === '#2e2e33' ? '#1a1a1e' : '#6e6e76'),
+      lungeT:90 + Math.floor(Math.random()*90), dash:0
+    });
+  }
+  if(kind === 'profesor'){
+    return Object.assign(base, {
+      x:minX, y:surfY-48, w:30, h:48,
+      speed:0.7 + Math.random()*0.2,
+      bubbleT:Math.floor(Math.random()*160)
+    });
+  }
+  // alumno
+  return Object.assign(base, {
+    x:minX, y:surfY-36, w:28, h:36,
+    speed:1.1 + Math.random()*0.5,
+    throwCd:90 + Math.floor(Math.random()*120), windup:0, shotToggle:Math.random()<0.5
+  });
+}
+
+function initGame(){
+  player = {
+    x:80, y:GROUND_Y-52, w:36, h:52, vx:0, vy:0,
+    dir:1, onGround:false, lives:3, power:false,
+    invuln:0, shootCd:0, shotToggle:false, anim:0, checkpoint:80, coyote:0
+  };
+  enemies = [
+    makeEnemy('alumno',   680,  900,  GROUND_Y, '#c0392b'),
+    makeEnemy('gato',     1180, 1420, GROUND_Y, '#d98a3d'),
+    makeEnemy('gato',     1700, 1900, GROUND_Y, '#8a8a90'),
+    makeEnemy('alumno',   1950, 2080, 330,      '#d35400'),
+    makeEnemy('profesor', 2240, 2480, GROUND_Y, '#7fa8c9'),
+    makeEnemy('alumno',   2700, 2920, GROUND_Y, '#8e44ad'),
+    makeEnemy('gato',     3060, 3320, GROUND_Y, '#2e2e33'),
+    makeEnemy('profesor', 3540, 3740, GROUND_Y, '#c9b27f'),
+    makeEnemy('alumno',   3950, 4160, GROUND_Y, '#c0392b'),
+    makeEnemy('gato',     4210, 4340, 330,      '#d98a3d'),
+    makeEnemy('profesor', 4900, 5120, GROUND_Y, '#9bc98f'),
+    makeEnemy('alumno',   5160, 5360, GROUND_Y, '#16557d'),
+    makeEnemy('gato',     5430, 5640, GROUND_Y, '#8a8a90')
+  ];
+  friends = [
+    {x:500,  y:GROUND_Y-36, w:28, h:36, taken:false, bob:0},
+    {x:3500, y:GROUND_Y-36, w:28, h:36, taken:false, bob:2}
+  ];
+  shots = [];      // proyectiles de Luismi
+  enemyShots = []; // zumos y bocadillos de los alumnos revoltosos
+  papers = [];     // folios de la jefa
+  floats = [];
+  particles = [];
+  boss = null;
+  bossActive = false;
+  camX = 0;
+  frame = 0;
+  jumpBuf = 0;
+  paused = false;
+  btnPause.textContent = '❚❚';
+
+  // motas de polvo flotando a contraluz (ambiente de pasillo)
+  motes = [];
+  for(let i=0;i<22;i++){
+    motes.push({x:Math.random()*W, y:Math.random()*H*0.8, s:1+Math.random()*2,
+                vy:0.12+Math.random()*0.2, ph:Math.random()*Math.PI*2});
+  }
+}
+
+function spawnBoss(){
+  bossActive = true;
+  boss = {
+    x:LEVEL_W-220, y:GROUND_Y-104, w:64, h:104,
+    vx:0, vy:0, hp:15, maxHp:15, invuln:0,
+    shootTimer:140, bubble:0, hopTimer:240, dead:false, deadT:0, anim:0
+  };
+  floats.push({x:boss.x-40, y:boss.y-60, t:'¡¡LA PROFESORA DE LENGUA!!', life:140, vy:-0.3, big:true});
+  sfx(110,0.5,'sawtooth',70);
+}
+
+/* ============================== FÍSICA ============================== */
+function rectsOverlap(a,b){
+  return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y;
+}
+
+function moveBody(b){
+  b.x += b.vx;
+  for(const s of solids){
+    if(rectsOverlap(b,s)){
+      if(b.vx > 0) b.x = s.x - b.w;
+      else if(b.vx < 0) b.x = s.x + s.w;
+      b.vx = 0;
+    }
+  }
+  const prevBottom = b.y + b.h - b.vy;
+  b.y += b.vy;
+  b.onGround = false;
+  for(const s of solids){
+    if(rectsOverlap(b,s)){
+      if(b.vy > 0){ b.y = s.y - b.h; b.vy = 0; b.onGround = true; }
+      else if(b.vy < 0){ b.y = s.y + s.h; b.vy = 0; }
+    }
+  }
+  if(b.vy >= 0){
+    for(const p of platforms){
+      if(b.x + b.w > p.x && b.x < p.x + p.w &&
+         prevBottom <= p.y + 1 && b.y + b.h >= p.y && b.y + b.h <= p.y + p.h + 14){
+        b.y = p.y - b.h; b.vy = 0; b.onGround = true;
+      }
+    }
+  }
+}
+
+/* ============================== UPDATE ============================== */
+function hurtPlayer(knockDir){
+  if(player.invuln > 0) return;
+  player.lives--;
+  sndHurt();
+  if(player.lives <= 0){
+    state = 'over';
+    btnPause.classList.add('hidden');
+    setTimeout(()=>scrOver.classList.remove('hidden'), 450);
+    return;
+  }
+  player.invuln = 110;
+  player.vy = -7;
+  player.vx = 5*knockDir;
+  floats.push({x:player.x, y:player.y-20, t:'¡Ay!', life:50, vy:-1});
+}
+
+function pitDeath(){
+  player.lives--;
+  sndHurt();
+  if(player.lives <= 0){
+    state = 'over';
+    btnPause.classList.add('hidden');
+    setTimeout(()=>scrOver.classList.remove('hidden'), 450);
+    return;
+  }
+  player.x = player.checkpoint;
+  player.y = GROUND_Y - 52 - 10;
+  player.vx = 0; player.vy = 0;
+  player.invuln = 90;
+  floats.push({x:player.x, y:player.y-30, t:'¡Al sótano no!', life:60, vy:-1});
+}
+
+function poof(x,y,color){
+  for(let i=0;i<8;i++){
+    particles.push({x:x, y:y, vx:(Math.random()-0.5)*4, vy:-Math.random()*3-1,
+                    life:24+Math.random()*12, c:color});
+  }
+}
+
+function killEnemy(e, cause){
+  e.dead = true;
+  e.squash = 0;
+  sndStomp();
+  if(e.kind === 'gato') sndMiau();
+  poof(e.x + e.w/2, e.y + e.h/2, e.color);
+  const msg = e.kind === 'gato' ? '¡Miau!' : (e.kind === 'profesor' ? '¡Sin llave!' : '¡Al pasillo!');
+  floats.push({x:e.x-10, y:e.y-18, t:msg, life:50, vy:-1});
+}
+
+function update(){
+  frame++;
+
+  /* ---- jugador: game feel ---- */
+  const accel = 0.55, maxV = 4.3;
+  if(keys['ArrowLeft'])  { player.vx -= accel; player.dir = -1; }
+  if(keys['ArrowRight']) { player.vx += accel; player.dir =  1; }
+  if(!keys['ArrowLeft'] && !keys['ArrowRight']) player.vx *= 0.80;
+  player.vx = Math.max(-maxV, Math.min(maxV, player.vx));
+  if(Math.abs(player.vx) < 0.05) player.vx = 0;
+
+  // coyote time: margen para saltar tras dejar una plataforma
+  if(player.onGround) player.coyote = 8;
+  else if(player.coyote > 0) player.coyote--;
+
+  if(jumpBuf > 0) jumpBuf--;
+  if(jumpBuf > 0 && (player.onGround || player.coyote > 0)){
+    player.vy = -12.6;
+    player.onGround = false;
+    player.coyote = 0;
+    jumpBuf = 0;
+    sndJump();
+  }
+  // salto variable: si sueltas el botón, el salto se corta
+  const holdingJump = keys['Space'] || keys['ArrowUp'];
+  if(!holdingJump && player.vy < -4.5) player.vy = -4.5;
+
+  player.vy += GRAV;
+  if(player.vy > 14) player.vy = 14;
+
+  moveBody(player);
+
+  const leftLimit = bossActive ? camX + 4 : 0;
+  if(player.x < leftLimit) { player.x = leftLimit; if(player.vx<0) player.vx = 0; }
+  if(player.x + player.w > LEVEL_W) player.x = LEVEL_W - player.w;
+
+  if(player.invuln > 0) player.invuln--;
+  if(player.shootCd > 0) player.shootCd--;
+  if(Math.abs(player.vx) > 0.3 && player.onGround) player.anim++;
+
+  // disparo
+  if(player.power && player.shootCd === 0 && (keys['KeyX']||keys['KeyZ'])){
+    player.shootCd = 24;
+    player.shotToggle = !player.shotToggle;
+    shots.push({
+      x: player.x + (player.dir>0 ? player.w+2 : -14),
+      y: player.y + 18,
+      vx: 7*player.dir, vy: -4.2,
+      kind: player.shotToggle ? 'zumo' : 'bocadillo',
+      life: 240, rot:0
+    });
+    sndShoot();
+  }
+
+  if(player.y > H + 80 && state === 'play') pitDeath();
+  if(state !== 'play') return;
+
+  for(const c of checkpoints){
+    if(player.x >= c && c > player.checkpoint) player.checkpoint = c;
+  }
+
+  /* ---- cámara ---- */
+  if(bossActive){
+    const target = LEVEL_W - W;
+    camX += (target - camX) * 0.10;
+    if(target - camX < 1) camX = target;
+  }else{
+    camX = Math.max(0, Math.min(LEVEL_W - W, player.x - W*0.38));
+    if(player.x > LEVEL_W - W + 80) spawnBoss();
+  }
+
+  /* ---- amigos (power-up) ---- */
+  for(const f of friends){
+    if(f.taken) continue;
+    f.bob += 0.08;
+    const fr = {x:f.x, y:f.y + Math.sin(f.bob)*3, w:f.w, h:f.h};
+    if(rectsOverlap(player, fr)){
+      f.taken = true;
+      player.power = true;
+      sndPower();
+      poof(f.x+14, f.y+10, '#7ce0a3');
+      floats.push({x:f.x-30, y:f.y-26, t:'¡Poder de la cantina! (X/Z)', life:90, vy:-0.8});
+    }
+  }
+
+  /* ---- enemigos ---- */
+  for(const e of enemies){
+    if(e.dead){ e.squash++; continue; }
+
+    const distP = (player.x + player.w/2) - (e.x + e.w/2);
+    const onScreen = e.x > camX - 40 && e.x < camX + W + 40;
+
+    if(e.kind === 'gato'){
+      // el gato patrulla y, si te ve cerca, se abalanza
+      if(e.dash > 0){
+        e.dash--;
+        e.x += 3.8 * e.dir;
+      }else{
+        e.x += e.speed * e.dir;
+        e.lungeT--;
+        if(e.lungeT <= 0 && onScreen && Math.abs(distP) < 260){
+          e.dir = Math.sign(distP) || 1;
+          e.dash = 34;
+          e.lungeT = 110 + Math.floor(Math.random()*80);
+          sndMiau();
+          floats.push({x:e.x, y:e.y-14, t:'¡Fffss!', life:30, vy:-1});
+        }
+      }
+      if(e.x < e.minX){ e.x = e.minX; e.dir = 1; e.dash = 0; }
+      if(e.x + e.w > e.maxX){ e.x = e.maxX - e.w; e.dir = -1; e.dash = 0; }
+
+    }else if(e.kind === 'profesor'){
+      // el profe te persigue despacio pidiendo la llave
+      if(onScreen && Math.abs(distP) < 420){
+        e.dir = Math.sign(distP) || 1;
+        e.x += (e.speed + 0.25) * e.dir;
+      }else{
+        e.x += e.speed * e.dir;
+      }
+      if(e.x < e.minX){ e.x = e.minX; e.dir = 1; }
+      if(e.x + e.w > e.maxX){ e.x = e.maxX - e.w; e.dir = -1; }
+      e.bubbleT = (e.bubbleT + 1) % 170;
+
+    }else{
+      // alumno revoltoso: patrulla y lanza zumos y bocadillos
+      e.x += e.speed * e.dir;
+      if(e.x < e.minX){ e.x = e.minX; e.dir = 1; }
+      if(e.x + e.w > e.maxX){ e.x = e.maxX - e.w; e.dir = -1; }
+
+      if(e.windup > 0) e.windup--;
+      if(onScreen && Math.abs(distP) < 480){
+        e.throwCd--;
+        if(e.throwCd === 18) e.windup = 18;
+        if(e.throwCd <= 0){
+          const dir = Math.sign(distP) || 1;
+          e.dir = dir;
+          e.shotToggle = !e.shotToggle;
+          enemyShots.push({
+            x: e.x + (dir>0 ? e.w : -12),
+            y: e.y + 6,
+            vx: (2.6 + Math.abs(distP)/240) * dir,
+            vy: -6.2,
+            kind: e.shotToggle ? 'zumo' : 'bocadillo',
+            rot: 0, life: 240
+          });
+          sfx(620,0.08,'square',360);
+          e.throwCd = 150 + Math.floor(Math.random()*110);
+        }
+      }
+    }
+
+    // colisión con Luismi (pisotón o daño)
+    if(rectsOverlap(player, e) && player.invuln === 0){
+      const playerBottom = player.y + player.h;
+      if(player.vy > 0 && playerBottom - e.y < 18){
+        killEnemy(e);
+        player.vy = -8.5;
+      }else{
+        hurtPlayer(player.x < e.x ? -1 : 1);
+      }
+    }
+  }
+  enemies = enemies.filter(e => !e.dead || e.squash < 26);
+
+  /* ---- proyectiles de Luismi ---- */
+  for(const s of shots){
+    s.vy += 0.32;
+    s.x += s.vx;
+    s.y += s.vy;
+    s.rot += 0.25*Math.sign(s.vx||1);
+    s.life--;
+    for(const sol of solids){
+      if(s.x>sol.x-10 && s.x<sol.x+sol.w && s.y+10 > sol.y && s.y < sol.y && s.vy > 0){
+        s.y = sol.y - 10; s.vy = -5.6;
+      }
+    }
+    for(const p of platforms){
+      if(s.x>p.x-6 && s.x<p.x+p.w && s.y+10 > p.y && s.y+10 < p.y+16 && s.vy > 0){
+        s.y = p.y - 10; s.vy = -5.6;
+      }
+    }
+    for(const e of enemies){
+      if(!e.dead && s.x+12 > e.x && s.x < e.x+e.w && s.y+12 > e.y && s.y < e.y+e.h){
+        killEnemy(e);
+        s.life = 0;
+      }
+    }
+    if(boss && !boss.dead && boss.invuln === 0 &&
+       s.x+12 > boss.x && s.x < boss.x+boss.w && s.y+12 > boss.y && s.y < boss.y+boss.h){
+      boss.hp -= 3;
+      boss.invuln = 40;
+      s.life = 0;
+      sndBossHit();
+      poof(s.x, s.y, '#ffd66e');
+      floats.push({x:boss.x, y:boss.y-14, t:'¡Ñam!', life:40, vy:-1});
+    }
+  }
+  shots = shots.filter(s => s.life > 0 && s.y < H+60 && s.x > camX-80 && s.x < camX+W+80);
+
+  /* ---- zumos y bocadillos de los alumnos ---- */
+  for(const s of enemyShots){
+    s.vy += 0.30;
+    s.x += s.vx;
+    s.y += s.vy;
+    s.rot += 0.22*Math.sign(s.vx||1);
+    s.life--;
+    for(const sol of solids){
+      if(s.x > sol.x-10 && s.x < sol.x+sol.w && s.y+10 > sol.y && s.y < sol.y+8 && s.vy > 0){
+        s.life = 0;
+        poof(s.x+6, sol.y-2, s.kind==='zumo' ? '#ef8b2e' : '#e0a85c');
+      }
+    }
+    if(s.life > 0 && player.invuln === 0 &&
+       rectsOverlap(player, {x:s.x, y:s.y, w:12, h:14})){
+      s.life = 0;
+      poof(s.x+6, s.y+6, s.kind==='zumo' ? '#ef8b2e' : '#e0a85c');
+      hurtPlayer(Math.sign(s.vx) || -1);
+    }
+  }
+  enemyShots = enemyShots.filter(s => s.life > 0 && s.y < H+60 && s.x > camX-100 && s.x < camX+W+100);
+
+  /* ---- jefa final ---- */
+  if(boss){
+    if(boss.dead){
+      boss.deadT++;
+      boss.vy += GRAV;
+      boss.y += boss.vy;
+      if(boss.deadT === 1){ sndWin(); }
+      if(boss.deadT > 95){
+        state = 'win';
+        btnPause.classList.add('hidden');
+        scrWin.classList.remove('hidden');
+      }
+    }else{
+      boss.anim++;
+      if(boss.invuln > 0) boss.invuln--;
+
+      const toPlayer = Math.sign((player.x+player.w/2) - (boss.x+boss.w/2));
+      boss.vx = toPlayer * 1.25;
+      boss.x += boss.vx;
+      boss.x = Math.max(camX+30, Math.min(LEVEL_W - boss.w - 16, boss.x));
+
+      boss.hopTimer--;
+      if(boss.hopTimer <= 0 && boss.y + boss.h >= GROUND_Y - 1){
+        boss.vy = -8.5;
+        boss.hopTimer = 220 + Math.floor(Math.random()*120);
+      }
+      boss.vy += GRAV;
+      boss.y += boss.vy;
+      if(boss.y + boss.h > GROUND_Y){ boss.y = GROUND_Y - boss.h; boss.vy = 0; }
+
+      boss.shootTimer--;
+      if(boss.shootTimer <= 0){
+        boss.bubble = 80;
+        boss.shootTimer = 170;
+      }
+      if(boss.bubble > 0){
+        boss.bubble--;
+        if(boss.bubble === 45){
+          const dir = toPlayer || -1;
+          for(let i=-1;i<=1;i++){
+            papers.push({x:boss.x + (dir>0?boss.w:-16), y:boss.y+34,
+                         vx:5.2*dir, vy:i*1.4, ph:Math.random()*6, life:200});
+          }
+          sfx(700,0.12,'square',300);
+        }
+      }
+
+      if(rectsOverlap(player, boss) && player.invuln === 0){
+        const playerBottom = player.y + player.h;
+        if(player.vy > 0 && playerBottom - boss.y < 22 && boss.invuln === 0){
+          boss.hp -= 5;
+          boss.invuln = 55;
+          player.vy = -10.5;
+          sndBossHit();
+          poof(boss.x+boss.w/2, boss.y, '#ffffff');
+          floats.push({x:boss.x, y:boss.y-16, t:'¡Pisotón!', life:46, vy:-1});
+        }else if(boss.invuln === 0 || playerBottom - boss.y >= 22){
+          hurtPlayer(player.x < boss.x ? -1 : 1);
+        }
+      }
+
+      if(boss.hp <= 0){
+        boss.dead = true;
+        boss.deadT = 0;
+        boss.vy = -9;
+        papers.length = 0;
+        floats.push({x:boss.x-60, y:boss.y-40, t:'¡Las fotocopias pueden esperar!', life:110, vy:-0.6, big:true});
+      }
+    }
+  }
+
+  /* ---- folios ---- */
+  for(const p of papers){
+    p.ph += 0.25;
+    p.x += p.vx;
+    p.y += p.vy + Math.sin(p.ph)*0.9;
+    p.life--;
+    if(rectsOverlap(player, {x:p.x, y:p.y, w:16, h:20}) && player.invuln === 0){
+      p.life = 0;
+      hurtPlayer(Math.sign(p.vx) || -1);
+    }
+  }
+  papers = papers.filter(p => p.life > 0 && p.x > camX-60 && p.x < camX+W+60);
+
+  /* ---- partículas, textos y polvo ---- */
+  for(const pa of particles){ pa.x+=pa.vx; pa.y+=pa.vy; pa.vy+=0.18; pa.life--; }
+  particles = particles.filter(p=>p.life>0);
+  for(const f of floats){ f.y += f.vy; f.life--; }
+  floats = floats.filter(f=>f.life>0);
+  for(const m of motes){
+    m.ph += 0.02;
+    m.y -= m.vy;
+    m.x += Math.sin(m.ph)*0.3;
+    if(m.y < -6){ m.y = H*0.8; m.x = Math.random()*W; }
+  }
+}
+
+/* ============================== DIBUJO ============================== */
+function rr(x,y,w,h,c){ ctx.fillStyle=c; ctx.fillRect(Math.round(x),Math.round(y),w,h); }
+
+/* --- decoración del pasillo --- */
+function drawWindow(wx){
+  const x = wx - camX;
+  if(x < -200 || x > W+200) return;
+  // marco
+  rr(x-6, 124, 172, 142, '#8a6a44');
+  rr(x, 130, 160, 130, '#cfe6f4');
+  // por la ventana: el Valle del Jerte
+  const g = ctx.createLinearGradient(0,130,0,260);
+  g.addColorStop(0,'#8fd3f4'); g.addColorStop(1,'#d8effc');
+  ctx.fillStyle = g; ctx.fillRect(Math.round(x), 130, 160, 130);
+  // montaña con nieve
+  ctx.fillStyle = '#9db4cf';
+  ctx.beginPath(); ctx.moveTo(x+10,260); ctx.lineTo(x+72,160); ctx.lineTo(x+140,260); ctx.fill();
+  ctx.fillStyle = '#f4f9ff';
+  ctx.beginPath(); ctx.moveTo(x+58,182); ctx.lineTo(x+72,160); ctx.lineTo(x+88,182);
+  ctx.lineTo(x+79,176); ctx.lineTo(x+72,184); ctx.lineTo(x+65,176); ctx.fill();
+  // cerezo en flor a lo lejos
+  rr(x+118, 234, 5, 26, '#6e4a2e');
+  ctx.fillStyle = '#f7a8c4';
+  ctx.beginPath(); ctx.arc(x+114, 230, 10, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(x+128, 228, 11, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(x+121, 220, 9, 0, Math.PI*2); ctx.fill();
+  // travesaños y alféizar
+  rr(x+76, 130, 8, 130, '#8a6a44');
+  rr(x, 190, 160, 8, '#8a6a44');
+  rr(x-10, 262, 180, 10, '#9c7a50');
+}
+
+function drawLockers(wx){
+  const x = wx - camX;
+  if(x < -220 || x > W+220) return;
+  for(let i=0;i<4;i++){
+    const lx = x + i*42;
+    rr(lx, 250, 38, 168, '#7b8aa0');
+    rr(lx, 250, 38, 6, '#94a3b8');
+    rr(lx+6, 262, 26, 4, '#5d6b80');   // rejillas
+    rr(lx+6, 270, 26, 4, '#5d6b80');
+    rr(lx+28, 300, 5, 12, '#d8dee8');  // tirador
+    rr(lx+6, 330, 26, 3, '#5d6b80');
+  }
+  rr(x-4, 414, 176, 6, '#5d6b80');
+}
+
+function drawPoster(wx, c){
+  const x = wx - camX;
+  if(x < -120 || x > W+120) return;
+  const cols = [['#ffd24d','#e8455a'],['#7ce0a3','#2f6fae'],['#ff9d6e','#8e44ad']];
+  const cc = cols[c % cols.length];
+  rr(x, 160, 86, 116, '#ffffff');
+  rr(x, 160, 86, 26, cc[0]);
+  rr(x+8, 196, 70, 6, cc[1]);
+  rr(x+8, 210, 70, 4, '#9aa3ad');
+  rr(x+8, 220, 56, 4, '#9aa3ad');
+  rr(x+8, 230, 64, 4, '#9aa3ad');
+  rr(x+8, 248, 40, 18, cc[1]);
+  // chinchetas
+  rr(x+2, 162, 5, 5, '#c43b3b');
+  rr(x+79, 162, 5, 5, '#c43b3b');
+}
+
+function drawDoor(wx, sign){
+  const x = wx - camX;
+  if(x < -140 || x > W+140) return;
+  rr(x-8, 212, 112, 258, '#8a6a44');
+  rr(x, 220, 96, 250, '#a07a4e');
+  rr(x+6, 226, 84, 238, '#b08d5d');
+  rr(x+14, 238, 68, 60, '#cfe6f4');   // ventanita
+  rr(x+14, 264, 68, 4, '#8a6a44');
+  rr(x+74, 350, 12, 5, '#e3c25f');    // manilla
+  // cartel
+  rr(x+14, 312, 68, 22, '#2e7d5b');
+  ctx.fillStyle = '#fff6e8';
+  ctx.font = 'bold 11px "Courier New", monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText(sign, Math.round(x+48), 327);
+  ctx.textAlign = 'left';
+}
+
+function drawClock(wx){
+  const x = wx - camX;
+  if(x < -80 || x > W+80) return;
+  ctx.fillStyle = '#3a3a44';
+  ctx.beginPath(); ctx.arc(x, 160, 24, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath(); ctx.arc(x, 160, 20, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#3a3a44'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(x, 160); ctx.lineTo(x, 147); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x, 160); ctx.lineTo(x+10, 164); ctx.stroke();
+}
+
+function drawExtintor(wx){
+  const x = wx - camX;
+  if(x < -80 || x > W+80) return;
+  rr(x-4, 248, 40, 52, '#b8412f');     // armario
+  rr(x, 254, 32, 40, '#d8dee8');
+  rr(x+9, 258, 14, 32, '#c43b3b');     // extintor
+  rr(x+13, 252, 6, 8, '#3a3a44');
+}
+
+function drawBoardDecor(wx){
+  const x = wx - camX;
+  if(x < -160 || x > W+160) return;
+  rr(x-6, 150, 172, 110, '#8a6a44');   // marco
+  rr(x, 156, 160, 98, '#f8f8f4');      // pizarra blanca
+  ctx.fillStyle = '#2f6fae';
+  ctx.font = 'bold 14px "Courier New", monospace';
+  ctx.fillText('EXAMEN VIERNES', Math.round(x+14), 184);
+  ctx.fillStyle = '#c43b3b';
+  ctx.fillText('SUJETO + PREDICADO', Math.round(x+14), 210);
+  rr(x+14, 226, 80, 4, '#9aa3ad');
+  rr(x+150, 244, 16, 6, '#c43b3b');    // borrador
+}
+
+function drawBackground(){
+  // pared del pasillo
+  ctx.fillStyle = '#f1e7d2';
+  ctx.fillRect(0,0,W,H);
+
+  // techo con placas
+  rr(0, 0, W, 44, '#e3d8c0');
+  rr(0, 42, W, 4, '#cfc4aa');
+  ctx.fillStyle = '#d6cab0';
+  const ceilOff = -((camX) % 120);
+  for(let lx = ceilOff; lx < W; lx += 120) ctx.fillRect(Math.round(lx), 0, 2, 42);
+
+  // fluorescentes (cada 480 px de mundo)
+  const flOff = -((camX) % 480);
+  for(let lx = flOff - 480; lx < W + 480; lx += 480){
+    rr(lx+170, 12, 140, 10, '#fdfdf6');
+    rr(lx+166, 20, 148, 3, '#cfc4aa');
+    ctx.fillStyle = 'rgba(255,252,230,0.18)';
+    ctx.beginPath();
+    ctx.moveTo(lx+170, 22); ctx.lineTo(lx+310, 22);
+    ctx.lineTo(lx+360, 150); ctx.lineTo(lx+120, 150);
+    ctx.closePath(); ctx.fill();
+  }
+
+  // decoración del pasillo
+  for(const d of decor){
+    if(d.type === 'window') drawWindow(d.x);
+    else if(d.type === 'lockers') drawLockers(d.x);
+    else if(d.type === 'poster') drawPoster(d.x, d.c||0);
+    else if(d.type === 'door') drawDoor(d.x, d.sign||'AULA');
+    else if(d.type === 'clock') drawClock(d.x);
+    else if(d.type === 'extintor') drawExtintor(d.x);
+    else if(d.type === 'board') drawBoardDecor(d.x);
+  }
+
+  // zócalo verde institucional
+  rr(0, 420, W, 50, '#5f8f76');
+  rr(0, 420, W, 5, '#4c7a62');
+
+  // sótano oscuro bajo el nivel del suelo (se ve en los fosos)
+  rr(0, GROUND_Y, W, H-GROUND_Y, '#2c2722');
+  ctx.fillStyle = '#211d19';
+  const pOff = -((camX) % 90);
+  for(let lx = pOff; lx < W; lx += 90) ctx.fillRect(Math.round(lx), GROUND_Y+30, 44, 8);
+}
+
+function drawGroundAndPlatforms(){
+  // suelo: terrazo de pasillo
+  for(const s of solids){
+    const x = s.x - camX;
+    if(x+s.w < -20 || x > W+20) continue;
+    rr(x, s.y, s.w, s.h, '#c9c2b4');
+    rr(x, s.y, s.w, 6, '#b5ad9e');
+    ctx.fillStyle = '#b0a898';
+    for(let i=0;i<s.w;i+=40){
+      ctx.fillRect(Math.round(x+i), s.y+6, 2, s.h-6);
+    }
+    ctx.fillStyle = '#a39b8c';
+    for(let i=0;i<s.w;i+=40){
+      ctx.fillRect(Math.round(x+i+((s.x+i)%3)*9), s.y+40+((s.x+i)%4)*12, 7, 4);
+    }
+  }
+
+  for(const p of platforms){
+    const x = p.x - camX;
+    if(x+p.w < -20 || x > W+20) continue;
+
+    if(p.type === 'desk'){
+      rr(x, p.y, p.w, 10, '#2e7d5b');
+      rr(x, p.y, p.w, 3, '#3f9e75');
+      rr(x-3, p.y+8, p.w+6, 5, '#b3b9c4');
+      rr(x+8, p.y+13, 6, 34, '#8d97a5');
+      rr(x+p.w-14, p.y+13, 6, 34, '#8d97a5');
+    }else if(p.type === 'books'){
+      rr(x, p.y+24, p.w, 12, '#b6452c');
+      rr(x+6, p.y+12, p.w-12, 12, '#2f6fae');
+      rr(x+12, p.y, p.w-24, 12, '#d9a022');
+      ctx.fillStyle = '#fff6e8';
+      ctx.fillRect(Math.round(x+10), p.y+27, p.w-20, 2);
+      ctx.fillRect(Math.round(x+14), p.y+15, p.w-28, 2);
+      ctx.fillRect(Math.round(x+18), p.y+3,  p.w-36, 2);
+    }else{ // drawer
+      rr(x, p.y, p.w, 90, '#9a7b4f');
+      rr(x, p.y, p.w, 4, '#b08d5d');
+      for(let i=0;i<3;i++){
+        rr(x+6, p.y+10+i*26, p.w-12, 20, '#7c603a');
+        rr(x+p.w/2-8, p.y+18+i*26, 16, 4, '#d9c08e');
+      }
+    }
+  }
+}
+
+/* ---- LUISMI ---- */
+function drawLuismi(){
+  const p = player;
+  if(p.invuln > 0 && Math.floor(frame/4)%2 === 0) return;
+
+  ctx.save();
+  ctx.translate(Math.round(p.x + p.w/2), Math.round(p.y));
+  ctx.scale(p.dir, 1);
+  const L = -p.w/2;
+
+  const walk = (p.onGround && Math.abs(p.vx)>0.3) ? Math.floor(p.anim/6)%2 : 0;
+  const jumping = !p.onGround;
+
+  if(jumping){
+    rr(L+5, 40, 10, 8, '#454a5e'); rr(L+21, 42, 10, 6, '#454a5e');
+    rr(L+3, 46, 13, 5, '#23232a'); rr(L+20, 46, 13, 5, '#23232a');
+  }else if(walk === 0){
+    rr(L+5, 40, 10, 9, '#454a5e'); rr(L+21, 40, 10, 9, '#454a5e');
+    rr(L+3, 48, 13, 4, '#23232a'); rr(L+20, 48, 13, 4, '#23232a');
+  }else{
+    rr(L+7, 40, 10, 9, '#454a5e'); rr(L+19, 40, 10, 9, '#454a5e');
+    rr(L+5, 48, 13, 4, '#23232a'); rr(L+18, 48, 13, 4, '#23232a');
+  }
+
+  rr(L-2, 26, 40, 14, '#17171c');
+  rr(L,   20, 36, 22, '#17171c');
+  rr(L+1, 21, 6, 18, '#24242c');
+  rr(L+13, 21, 10, 2, '#e8c14d');
+
+  const shooting = p.shootCd > 14;
+  rr(L-5, 22, 6, 14, '#17171c');
+  if(shooting){
+    rr(L+33, 23, 13, 6, '#17171c');
+    rr(L+46, 23, 5, 6, '#ecbd92');
+  }else{
+    rr(L+35, 22, 6, 14, '#17171c');
+    rr(L+35, 35, 6, 4, '#ecbd92');
+  }
+
+  rr(L+6, 3, 24, 17, '#ecbd92');
+  rr(L+4, 0, 28, 5, '#b9bdc2');
+  rr(L+4, 5, 4, 9, '#a6abb1');
+  rr(L+27, 0, 5, 4, '#cdd1d6');
+  rr(L+11, 7, 8, 6, '#101013'); rr(L+13, 9, 4, 3, '#cfe0ea');
+  rr(L+22, 7, 8, 6, '#101013'); rr(L+24, 9, 4, 3, '#cfe0ea');
+  rr(L+19, 9, 3, 2, '#101013');
+  rr(L+6, 8, 5, 2, '#101013');
+  rr(L+21, 12, 4, 3, '#d9a276');
+  rr(L+8, 14, 22, 6, '#a7a7a7');
+  rr(L+11, 19, 16, 2, '#9a9a9a');
+  rr(L+15, 15, 8, 2, '#7d7d7d');
+
+  ctx.restore();
+}
+
+/* ---- enemigos ---- */
+function drawAlumno(e, L){
+  const walk = Math.floor(frame/8)%2;
+  if(walk===0){ rr(L+3,30,8,4,'#3b5a82'); rr(L+17,30,8,4,'#3b5a82'); rr(L+2,33,10,3,'#f1f1f1'); rr(L+16,33,10,3,'#f1f1f1'); }
+  else        { rr(L+5,30,8,4,'#3b5a82'); rr(L+15,30,8,4,'#3b5a82'); rr(L+4,33,10,3,'#f1f1f1'); rr(L+14,33,10,3,'#f1f1f1'); }
+  rr(L, 16, 28, 15, e.color);
+  if(e.windup > 0){
+    rr(L+22, 6, 6, 12, e.color);
+    rr(L+22, 2, 6, 5, '#f0c29a');
+  }else{
+    rr(L+22, 18, 6, 10, e.color);
+  }
+  rr(L-4, 17, 6, 12, '#555f6e');
+  rr(L+5, 4, 18, 13, '#f0c29a');
+  rr(L+3, 0, 22, 6, '#3a2a1e');
+  rr(L+3, 5, 3, 5, '#3a2a1e');
+  rr(L+9, 7, 5, 2, '#3a2a1e');
+  rr(L+17, 7, 5, 2, '#3a2a1e');
+  rr(L+10, 9, 3, 3, '#222');
+  rr(L+18, 9, 3, 3, '#222');
+  rr(L+12, 14, 8, 2, '#8d3b2c');
+}
+
+function drawGato(e, L){
+  const run = Math.floor(frame/6)%2;
+  const crouch = e.dash > 0 ? 2 : 0;
+  // cola
+  rr(L-3, 4 + Math.sin(frame*0.2)*2, 4, 8, e.color);
+  rr(L-5, 2 + Math.sin(frame*0.2)*2, 4, 4, e.color);
+  // cuerpo
+  rr(L+2, 7+crouch, 24, 9-crouch, e.color);
+  rr(L+5, 9+crouch, 6, 4, e.color2);   // rayas
+  rr(L+14, 9+crouch, 6, 4, e.color2);
+  // cabeza
+  rr(L+20, 2+crouch, 11, 9, e.color);
+  rr(L+21, -1+crouch, 3, 4, e.color);  // orejas
+  rr(L+27, -1+crouch, 3, 4, e.color);
+  rr(L+22, 0+crouch, 1, 2, '#e8a0b4');
+  rr(L+28, 0+crouch, 1, 2, '#e8a0b4');
+  // ojos verdes (brillan al abalanzarse)
+  rr(L+23, 5+crouch, 2, 2, e.dash>0 ? '#fff48a' : '#7fe06a');
+  rr(L+27, 5+crouch, 2, 2, e.dash>0 ? '#fff48a' : '#7fe06a');
+  rr(L+29, 8+crouch, 2, 1, '#e8a0b4'); // nariz
+  // patas
+  if(run===0){ rr(L+4,16,4,4,e.color); rr(L+12,16,4,4,e.color); rr(L+20,16,4,4,e.color); }
+  else       { rr(L+7,16,4,4,e.color); rr(L+15,16,4,4,e.color); rr(L+23,16,4,4,e.color); }
+}
+
+function drawEnemy(e){
+  ctx.save();
+  ctx.translate(Math.round(e.x + e.w/2), Math.round(e.y));
+  // el globo del profe no debe dibujarse espejado
+  const flip = e.dir < 0 && e.kind !== 'profesor';
+  if(flip) ctx.scale(-1, 1);
+  const L = -e.w/2;
+
+  if(e.dead){
+    const sq = Math.min(1, e.squash/8);
+    ctx.globalAlpha = 1 - e.squash/26;
+    if(e.kind === 'gato'){
+      rr(L, 12 - 4*(1-sq), 32, 8, e.color);
+    }else{
+      rr(L, e.h-10 - 6*(1-sq), e.w, 10, e.kind==='profesor' ? e.color : e.color);
+      rr(L+4, e.h-14 - 6*(1-sq), e.w-8, 6, '#f0c29a');
+    }
+    ctx.restore();
+    return;
+  }
+
+  if(e.kind === 'gato'){
+    drawGato(e, L);
+  }else if(e.kind === 'profesor'){
+    // espejar solo el cuerpo del profe a mano
+    ctx.save();
+    if(e.dir < 0){ ctx.scale(-1,1); }
+    drawProfesorBody(e, L);
+    ctx.restore();
+    drawProfesorBubble(e, L);
+  }else{
+    drawAlumno(e, L);
+  }
+  ctx.restore();
+}
+
+function drawProfesorBody(e, L){
+  const walk = Math.floor(frame/9)%2;
+  if(walk===0){ rr(L+5,38,8,8,'#5a5247'); rr(L+17,38,8,8,'#5a5247'); }
+  else        { rr(L+7,38,8,8,'#5a5247'); rr(L+15,38,8,8,'#5a5247'); }
+  rr(L+3, 44, 11, 4, '#3a342c');
+  rr(L+16, 44, 11, 4, '#3a342c');
+  rr(L, 18, 30, 21, e.color);
+  rr(L+13, 18, 4, 10, '#c43b3b');
+  rr(L+11, 27, 8, 6, '#ffffff');
+  rr(L+24, 6, 5, 14, e.color);
+  rr(L+24, 2, 5, 5, '#f0c29a');
+  rr(L+22, -4, 9, 4, '#e8c14d');
+  rr(L+29, 0, 2, 3, '#e8c14d');
+  rr(L+24, -2, 2, 2, '#b8983c');
+  rr(L+6, 4, 18, 13, '#f0c29a');
+  rr(L+4, 1, 22, 5, '#8d8d8d');
+  rr(L+4, 6, 3, 4, '#8d8d8d');
+  rr(L+9, 8, 5, 4, '#3a3a44'); rr(L+16, 8, 5, 4, '#3a3a44');
+  rr(L+14, 9, 2, 2, '#3a3a44');
+  rr(L+11, 14, 9, 2, '#8d3b2c');
+}
+
+function drawProfesorBubble(e, L){
+  if(e.bubbleT >= 70) return;
+  const bx = 0, by = -30;
+  ctx.fillStyle = '#ffffff';
+  ctx.strokeStyle = '#1c1c28';
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.rect(bx-44, by, 88, 18); ctx.fill(); ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(bx-6, by+18); ctx.lineTo(bx+6, by+18); ctx.lineTo(bx, by+26);
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#1c1c28';
+  ctx.font = 'bold 12px "Courier New", monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('¡La llave!', bx, by+13);
+  ctx.textAlign = 'left';
+}
+
+function drawFriend(f){
+  if(f.taken) return;
+  const y = f.y + Math.sin(f.bob)*3;
+  const x = f.x;
+  ctx.fillStyle = '#ffe28a';
+  const sy = y - 14 + Math.sin(f.bob*2)*2;
+  ctx.beginPath();
+  ctx.moveTo(x+14, sy-6); ctx.lineTo(x+17, sy); ctx.lineTo(x+23, sy+1);
+  ctx.lineTo(x+18, sy+5); ctx.lineTo(x+20, sy+11); ctx.lineTo(x+14, sy+7);
+  ctx.lineTo(x+8, sy+11); ctx.lineTo(x+10, sy+5); ctx.lineTo(x+5, sy+1);
+  ctx.lineTo(x+11, sy); ctx.closePath(); ctx.fill();
+
+  const walk = Math.floor(frame/10)%2;
+  rr(x+4, y+30, 8, 4, '#7a5230'); rr(x+16, y+30, 8, 4, '#7a5230');
+  rr(x+3, y+33, 10, 3, '#fff'); rr(x+15, y+33, 10, 3, '#fff');
+  rr(x, y+16, 28, 15, '#3fae6a');
+  rr(x+24, y+8 - walk*3, 5, 10, '#3fae6a');
+  rr(x+24, y+5 - walk*3, 5, 4, '#f0c29a');
+  rr(x+5, y+4, 18, 13, '#f0c29a');
+  rr(x+3, y, 22, 6, '#23170f');
+  rr(x+9, y+8, 3, 3, '#222'); rr(x+16, y+8, 3, 3, '#222');
+  rr(x+10, y+13, 8, 2, '#8d3b2c');
+  rr(x+9, y+12, 2, 2, '#8d3b2c'); rr(x+17, y+12, 2, 2, '#8d3b2c');
+}
+
+function drawShot(s){
+  ctx.save();
+  ctx.translate(s.x+6, s.y+6);
+  ctx.rotate(s.rot);
+  if(s.kind === 'zumo'){
+    rr(-6,-8,12,16,'#ef8b2e');
+    rr(-6,-8,12,4,'#f6b86e');
+    rr(-2,-12,2,5,'#fff');
+    ctx.fillStyle='#fff'; ctx.fillRect(-4,-2,8,6);
+    ctx.fillStyle='#c8611a'; ctx.fillRect(-3,-1,6,4);
+  }else{
+    ctx.fillStyle = '#e0a85c';
+    ctx.beginPath(); ctx.ellipse(0,0,11,6,0,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#f3cf97';
+    ctx.beginPath(); ctx.ellipse(0,-2,10,4,0,0,Math.PI*2); ctx.fill();
+    rr(-8,-1,16,2,'#b5443a');
+  }
+  ctx.restore();
+}
+
+function drawPaper(p){
+  ctx.save();
+  ctx.translate(p.x+8, p.y+10);
+  ctx.rotate(Math.sin(p.ph)*0.5);
+  rr(-7,-10,14,20,'#ffffff');
+  ctx.fillStyle='#aab4c2';
+  for(let i=0;i<4;i++) ctx.fillRect(-5,-7+i*5,10,2);
+  ctx.restore();
+}
+
+function drawBoss(){
+  if(!boss) return;
+  const b = boss;
+  ctx.save();
+  if(b.dead){
+    ctx.translate(Math.round(b.x - camX + b.w/2), Math.round(b.y + b.h/2));
+    ctx.rotate(Math.PI);
+    ctx.translate(-b.w/2, -b.h/2);
+  }else{
+    ctx.translate(Math.round(b.x - camX), Math.round(b.y));
+  }
+  if(b.invuln > 0 && Math.floor(frame/3)%2===0) ctx.globalAlpha = 0.45;
+
+  const walk = Math.floor(b.anim/9)%2;
+  rr(18, 72+(walk?1:0), 9, 18, '#23232b');
+  rr(37, 72+(walk?0:1), 9, 18, '#23232b');
+  rr(16, 86, 13, 16, '#0e0e12');
+  rr(35, 86, 13, 16, '#0e0e12');
+  rr(14, 100, 16, 4, '#1c1c22');
+  rr(34, 100, 16, 4, '#1c1c22');
+  rr(18, 92, 9, 2, '#caa94e');
+  rr(37, 92, 9, 2, '#caa94e');
+  rr(14, 58, 36, 16, '#6b6e7c');
+  rr(14, 58, 36, 3, '#7d8090');
+  rr(18, 30, 28, 30, '#f3efe7');
+  rr(6, 26, 14, 36, '#181b22');
+  rr(44, 26, 14, 36, '#181b22');
+  rr(6, 26, 52, 7, '#181b22');
+  rr(8, 30, 3, 28, '#2d3340');
+  rr(53, 30, 3, 28, '#2d3340');
+  rr(0, 36, 9, 26, '#181b22');
+  rr(-8, 46, 18, 20, '#ffffff');
+  ctx.fillStyle='#c4ccd8';
+  ctx.fillRect(-8, 52, 18, 2); ctx.fillRect(-8, 58, 18, 2);
+  rr(54, 36, 16, 7, '#181b22');
+  rr(68, 37, 6, 5, '#eebd95');
+  rr(20, 6, 24, 20, '#eebd95');
+  rr(16, 0, 32, 8, '#16110c');
+  rr(12, 4, 9, 44, '#16110c');
+  rr(43, 4, 9, 44, '#16110c');
+  rr(14, 4, 3, 40, '#241a12');
+  rr(21, 11, 10, 7, '#0c0c0f'); rr(33, 11, 10, 7, '#0c0c0f');
+  rr(30, 13, 4, 2, '#0c0c0f');
+  rr(23, 12, 3, 2, '#3a3f4c');
+  rr(35, 12, 3, 2, '#3a3f4c');
+  rr(27, 21, 10, 3, '#d4374f');
+  rr(26, 20, 2, 2, '#d4374f'); rr(37, 20, 2, 2, '#d4374f');
+  ctx.restore();
+
+  if(!b.dead && b.bubble > 20){
+    const bx = b.x - camX + b.w/2;
+    const by = b.y - 56;
+    ctx.fillStyle = '#ffffff';
+    ctx.strokeStyle = '#1c1c28';
+    ctx.lineWidth = 3;
+    const bw = 218, bh = 36;
+    const rx = Math.max(8, Math.min(W-bw-8, bx - bw/2));
+    ctx.beginPath();
+    ctx.rect(rx, by, bw, bh);
+    ctx.fill(); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(bx-8, by+bh); ctx.lineTo(bx+8, by+bh); ctx.lineTo(bx, by+bh+12);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#1c1c28';
+    ctx.font = 'bold 17px "Courier New", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('¡Necesito fotocopias!', rx + bw/2, by + 24);
+    ctx.textAlign = 'left';
+  }
+
+  if(!b.dead){
+    const bw = 260, bx = W - bw - 24, by = 18;
+    ctx.fillStyle = '#1c1c28';
+    ctx.fillRect(bx-4, by-4, bw+8, 26);
+    ctx.fillStyle = '#5a1f2b';
+    ctx.fillRect(bx, by, bw, 10);
+    ctx.fillStyle = '#e8455a';
+    ctx.fillRect(bx, by, bw * Math.max(0,b.hp)/b.maxHp, 10);
+    ctx.fillStyle = '#fff6e8';
+    ctx.font = 'bold 12px "Courier New", monospace';
+    ctx.fillText('PROFESORA DE LENGUA', bx, by + 22);
+  }
+}
+
+function drawHUD(){
+  ctx.fillStyle = 'rgba(16,20,43,0.55)';
+  ctx.fillRect(14, 12, player.power ? 332 : 168, 34);
+  ctx.font = 'bold 18px "Courier New", monospace';
+  ctx.fillStyle = '#fff6e8';
+  ctx.fillText('VIDAS', 24, 35);
+  for(let i=0;i<player.lives;i++){
+    const hx = 96 + i*24, hy = 28;
+    ctx.fillStyle = '#e8455a';
+    ctx.beginPath();
+    ctx.arc(hx-4, hy-2, 5, 0, Math.PI*2);
+    ctx.arc(hx+4, hy-2, 5, 0, Math.PI*2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(hx-9, hy); ctx.lineTo(hx, hy+10); ctx.lineTo(hx+9, hy);
+    ctx.closePath(); ctx.fill();
+  }
+  if(player.power){
+    ctx.fillStyle = '#ffe28a';
+    ctx.fillText('PODER: ZUMO+BOCATA (X/Z)', 178, 35);
+  }
+}
+
+function drawPauseBanner(){
+  ctx.fillStyle = 'rgba(16,20,43,0.7)';
+  ctx.fillRect(0,0,W,H);
+  ctx.fillStyle = '#fff6e8';
+  ctx.font = 'bold 52px "Courier New", monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('PAUSA', W/2, H/2 - 10);
+  ctx.font = 'bold 18px "Courier New", monospace';
+  ctx.fillStyle = '#ffd9e4';
+  ctx.fillText('ESC o ❚❚ para continuar', W/2, H/2 + 28);
+  ctx.textAlign = 'left';
+}
+
+function draw(){
+  drawBackground();
+
+  ctx.save();
+  ctx.translate(-Math.round(camX), 0);
+  ctx.font = 'bold 16px "Courier New", monospace';
+  for(const wt of worldTexts){
+    ctx.fillStyle = 'rgba(16,20,43,0.5)';
+    ctx.fillText(wt.t, wt.x+1, wt.y+1);
+    ctx.fillStyle = '#6e5a3e';
+    ctx.fillText(wt.t, wt.x, wt.y);
+  }
+  ctx.restore();
+
+  drawGroundAndPlatforms();
+
+  ctx.save();
+  ctx.translate(-Math.round(camX), 0);
+
+  for(const f of friends) drawFriend(f);
+  for(const e of enemies) drawEnemy(e);
+  for(const s of shots) drawShot(s);
+  for(const s of enemyShots) drawShot(s);
+  for(const p of papers) drawPaper(p);
+  drawLuismi();
+
+  for(const pa of particles){
+    ctx.globalAlpha = Math.max(0, pa.life/30);
+    ctx.fillStyle = pa.c;
+    ctx.fillRect(Math.round(pa.x), Math.round(pa.y), 5, 5);
+  }
+  ctx.globalAlpha = 1;
+
+  for(const f of floats){
+    ctx.globalAlpha = Math.min(1, f.life/24);
+    ctx.font = f.big ? 'bold 22px "Courier New", monospace' : 'bold 15px "Courier New", monospace';
+    ctx.fillStyle = '#1c1c28';
+    ctx.fillText(f.t, f.x+1, f.y+1);
+    ctx.fillStyle = f.big ? '#ffe28a' : '#ffffff';
+    ctx.fillText(f.t, f.x, f.y);
+  }
+  ctx.globalAlpha = 1;
+
+  ctx.restore();
+
+  drawBoss();
+
+  // motas de polvo a contraluz
+  for(const m of motes){
+    ctx.fillStyle = 'rgba(255,250,225,0.30)';
+    ctx.beginPath();
+    ctx.arc(m.x, m.y, m.s, 0, Math.PI*2);
+    ctx.fill();
+  }
+
+  drawHUD();
+  if(paused) drawPauseBanner();
+}
+
+/* ============================== BUCLE ============================== */
+function loop(){
+  if(state === 'play' && !paused){
+    update();
+  }
+  if(state === 'play' || state === 'win' || state === 'over'){
+    draw();
+  }
+  requestAnimationFrame(loop);
+}
+
+function startGame(){
+  audioInit();
+  initGame();
+  scrStart.classList.add('hidden');
+  scrOver.classList.add('hidden');
+  scrWin.classList.add('hidden');
+  btnPause.classList.remove('hidden');
+  state = 'play';
+}
+
+document.getElementById('btn-start').addEventListener('click', startGame);
+document.getElementById('btn-retry').addEventListener('click', startGame);
+document.getElementById('btn-again').addEventListener('click', startGame);
+
+initGame();
+draw();
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
