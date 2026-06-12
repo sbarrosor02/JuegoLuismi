@@ -118,7 +118,9 @@
       <b>← →</b> correr · <b>ESPACIO</b> saltar (mantén para saltar más alto) · <b>X / Z</b> lanzar · <b>ESC</b> pausa<br>
       En móvil/tablet: usa los <b>botones táctiles</b> en pantalla.<br>
       Choca con los <b>alumnos amigos</b> para conseguir el poder de disparo.<br>
-      Pisa a los enemigos: <b>alumnos</b> que lanzan comida, <b>gatos</b> que se abalanzan y <b>profes</b> que piden la llave.
+      Pisa a los enemigos: <b>alumnos</b> que lanzan comida, <b>gatos</b> que se abalanzan y <b>profes</b> que piden la llave.<br>
+      El <b>café</b> hace grande a Luismi, el <b>manojo de llaves</b> es un escudo giratorio<br>
+      y si le pegan... se cabrea y lanza <b>tizas</b>. ¡Atento al timbre del recreo!
     </div>
     <button id="btn-start">Jugar</button>
   </div>
@@ -190,6 +192,10 @@ const sndShoot  = ()=>sfx(880,0.10,'square',1200);
 const sndStomp  = ()=>sfx(300,0.16,'triangle',90);
 const sndHurt   = ()=>sfx(160,0.30,'sawtooth',60);
 const sndMiau   = ()=>sfx(900,0.16,'triangle',520);
+const sndBell   = ()=>{for(let i=0;i<6;i++){setTimeout(()=>{sfx(1567,0.09,'square');sfx(1244,0.09,'square');}, i*110);}};
+const sndCoffee = ()=>{sfx(392,0.10,'triangle');setTimeout(()=>sfx(523,0.10,'triangle'),90);setTimeout(()=>sfx(784,0.18,'triangle'),180);};
+const sndKeys   = ()=>{sfx(1318,0.06,'square');setTimeout(()=>sfx(1760,0.06,'square'),70);setTimeout(()=>sfx(2093,0.08,'square'),140);};
+const sndRage   = ()=>sfx(95,0.40,'sawtooth',55);
 const sndPower  = ()=>{sfx(523,0.10,'square');setTimeout(()=>sfx(659,0.10,'square'),90);setTimeout(()=>sfx(784,0.16,'square'),180);};
 const sndBossHit= ()=>sfx(220,0.20,'sawtooth',110);
 const sndWin    = ()=>{[523,659,784,1046].forEach((f,i)=>setTimeout(()=>sfx(f,0.22,'square'),i*140));};
@@ -271,8 +277,10 @@ const checkpoints = [80, 1700, 2750, 3980, 4920];
 
 // Decoración del pasillo del instituto (coordenadas de mundo)
 const decor = [
+  {x:6,    type:'garita'},
   {x:140,  type:'window'},  {x:430,  type:'lockers'}, {x:700,  type:'poster', c:0},
   {x:900,  type:'door', sign:'AULA 1'},
+  {x:1020, type:'vending'},
   {x:1180, type:'window'},  {x:1430, type:'extintor'},{x:1660, type:'board'},
   {x:1940, type:'lockers'}, {x:2210, type:'window'},  {x:2460, type:'clock'},
   {x:2640, type:'poster', c:1},
@@ -293,6 +301,7 @@ const worldTexts = [
 
 /* ============================== ENTIDADES ============================== */
 let player, enemies, friends, shots, enemyShots, papers, floats, particles, motes, boss, bossActive;
+let items, bellT, ringT, shakeT;
 
 function makeEnemy(kind, minX, maxX, surfY, color){
   const base = {
@@ -325,7 +334,8 @@ function initGame(){
   player = {
     x:80, y:GROUND_Y-52, w:36, h:52, vx:0, vy:0,
     dir:1, onGround:false, lives:3, power:false,
-    invuln:0, shootCd:0, shotToggle:false, anim:0, checkpoint:80, coyote:0
+    invuln:0, shootCd:0, shotToggle:false, anim:0, checkpoint:80, coyote:0,
+    big:false, rage:0, keysT:0
   };
   enemies = [
     makeEnemy('alumno',   680,  900,  GROUND_Y, '#c0392b'),
@@ -343,8 +353,16 @@ function initGame(){
     makeEnemy('gato',     5430, 5640, GROUND_Y, '#8a8a90')
   ];
   friends = [
-    {x:500,  y:GROUND_Y-36, w:28, h:36, taken:false, bob:0},
-    {x:3500, y:GROUND_Y-36, w:28, h:36, taken:false, bob:2}
+    {x:500,  y:GROUND_Y-36, w:28, h:36, taken:false, bob:0, name:'Carlos'},
+    {x:1880, y:GROUND_Y-36, w:28, h:36, taken:false, bob:1, name:'Aitor'},
+    {x:3500, y:GROUND_Y-36, w:28, h:36, taken:false, bob:2, name:'Alejandro'},
+    {x:5700, y:GROUND_Y-36, w:28, h:36, taken:false, bob:3, name:'Jose'}
+  ];
+  items = [
+    {x:1060, y:GROUND_Y-30, type:'cafe',   taken:false, bob:0},
+    {x:2440, y:GROUND_Y-28, type:'llaves', taken:false, bob:1},
+    {x:4450, y:250,         type:'cafe',   taken:false, bob:2},
+    {x:5230, y:300,         type:'llaves', taken:false, bob:3}
   ];
   shots = [];      // proyectiles de Luismi
   enemyShots = []; // zumos y bocadillos de los alumnos revoltosos
@@ -357,6 +375,9 @@ function initGame(){
   frame = 0;
   jumpBuf = 0;
   paused = false;
+  bellT = 1500;   // primer timbre a los ~25 s
+  ringT = 0;
+  shakeT = 0;
   btnPause.textContent = '❚❚';
 
   // motas de polvo flotando a contraluz (ambiente de pasillo)
@@ -376,6 +397,32 @@ function spawnBoss(){
   };
   floats.push({x:boss.x-40, y:boss.y-60, t:'¡¡LA PROFESORA DE LENGUA!!', life:140, vy:-0.3, big:true});
   sfx(110,0.5,'sawtooth',70);
+}
+
+function schoolBell(){
+  ringT = 90;
+  shakeT = 36;
+  sndBell();
+  floats.push({x:camX + W/2 - 150, y:140, t:'¡¡RIIING!! ¡RECREO!', life:110, vy:-0.2, big:true});
+  const palette = ['#c0392b','#8e44ad','#d35400','#16557d'];
+  const doors = decor.filter(d => d.type === 'door' && d.x > camX - 300 && d.x < camX + W + 500);
+  let spawned = 0;
+  for(const d of doors){
+    for(let i=0;i<2;i++){
+      if(spawned >= 4 || enemies.length >= 24) break;
+      const ex = d.x + 26 + i*44;
+      const seg = solids.find(s => ex > s.x && ex + 28 < s.x + s.w);
+      if(!seg) continue;
+      const minX = Math.max(seg.x + 10, ex - 160);
+      const maxX = Math.min(seg.x + seg.w - 10, ex + 160);
+      const en = makeEnemy('alumno', minX, maxX, GROUND_Y, palette[(spawned)%palette.length]);
+      en.x = ex;
+      en.temp = 780; // la oleada se retira al acabar el "recreo"
+      enemies.push(en);
+      poof(ex+14, GROUND_Y-20, '#ffffff');
+      spawned++;
+    }
+  }
 }
 
 /* ============================== FÍSICA ============================== */
@@ -412,8 +459,29 @@ function moveBody(b){
 }
 
 /* ============================== UPDATE ============================== */
+function enrage(){
+  if(player.rage <= 0){
+    floats.push({x:player.x-40, y:player.y-30, t:'¡¡Luismi se ha cabreado!!', life:80, vy:-0.8});
+    sndRage();
+  }
+  player.rage = 360; // ~6 s lanzando tizas
+}
+
 function hurtPlayer(knockDir){
   if(player.invuln > 0) return;
+  enrage();
+  if(player.big){
+    // con el café puesto aguanta un golpe: encoge en vez de perder vida
+    player.big = false;
+    player.h = 52;
+    player.y += 12;
+    player.invuln = 110;
+    player.vy = -7;
+    player.vx = 5*knockDir;
+    sndHurt();
+    floats.push({x:player.x, y:player.y-20, t:'¡Sin café!', life:50, vy:-1});
+    return;
+  }
   player.lives--;
   sndHurt();
   if(player.lives <= 0){
@@ -498,21 +566,42 @@ function update(){
   if(player.x + player.w > LEVEL_W) player.x = LEVEL_W - player.w;
 
   if(player.invuln > 0) player.invuln--;
+  if(player.rage > 0){
+    player.rage--;
+    if(frame % 12 === 0){
+      particles.push({x:player.x + (player.dir>0?player.w:0), y:player.y-4,
+                      vx:(Math.random()-0.5)*0.8, vy:-0.8, life:22, c:'#d8d8de'});
+    }
+  }
   if(player.shootCd > 0) player.shootCd--;
   if(Math.abs(player.vx) > 0.3 && player.onGround) player.anim++;
 
-  // disparo
-  if(player.power && player.shootCd === 0 && (keys['KeyX']||keys['KeyZ'])){
-    player.shootCd = 24;
-    player.shotToggle = !player.shotToggle;
-    shots.push({
-      x: player.x + (player.dir>0 ? player.w+2 : -14),
-      y: player.y + 18,
-      vx: 7*player.dir, vy: -4.2,
-      kind: player.shotToggle ? 'zumo' : 'bocadillo',
-      life: 240, rot:0
-    });
-    sndShoot();
+  // disparo: poder de la cantina o tizas de cabreo
+  const canShoot = player.power || player.rage > 0;
+  if(canShoot && player.shootCd === 0 && (keys['KeyX']||keys['KeyZ'])){
+    if(player.rage > 0){
+      // ráfaga de tizas: rápidas, rectas y furiosas
+      player.shootCd = 10;
+      shots.push({
+        x: player.x + (player.dir>0 ? player.w+2 : -14),
+        y: player.y + 14,
+        vx: 9*player.dir, vy: -0.4,
+        kind: 'tiza',
+        life: 90, rot:0
+      });
+      sfx(1200,0.06,'square',1600);
+    }else{
+      player.shootCd = 24;
+      player.shotToggle = !player.shotToggle;
+      shots.push({
+        x: player.x + (player.dir>0 ? player.w+2 : -14),
+        y: player.y + 18,
+        vx: 7*player.dir, vy: -4.2,
+        kind: player.shotToggle ? 'zumo' : 'bocadillo',
+        life: 240, rot:0
+      });
+      sndShoot();
+    }
   }
 
   if(player.y > H + 80 && state === 'play') pitDeath();
@@ -539,16 +628,61 @@ function update(){
     const fr = {x:f.x, y:f.y + Math.sin(f.bob)*3, w:f.w, h:f.h};
     if(rectsOverlap(player, fr)){
       f.taken = true;
-      player.power = true;
       sndPower();
       poof(f.x+14, f.y+10, '#7ce0a3');
-      floats.push({x:f.x-30, y:f.y-26, t:'¡Poder de la cantina! (X/Z)', life:90, vy:-0.8});
+      if(!player.power){
+        player.power = true;
+        floats.push({x:f.x-40, y:f.y-26, t:'¡'+f.name+' te da el poder de la cantina! (X/Z)', life:90, vy:-0.8});
+      }else if(player.lives < 3){
+        player.lives++;
+        floats.push({x:f.x-30, y:f.y-26, t:'¡'+f.name+' te anima! +1 vida', life:90, vy:-0.8});
+      }else{
+        floats.push({x:f.x-20, y:f.y-26, t:'¡Vamos Luismi! — '+f.name, life:70, vy:-0.8});
+      }
+    }
+  }
+
+  /* ---- objetos: café y manojo de llaves ---- */
+  for(const it of items){
+    if(it.taken) continue;
+    it.bob += 0.07;
+    const r = {x:it.x, y:it.y + Math.sin(it.bob)*3, w:24, h:26};
+    if(rectsOverlap(player, r)){
+      it.taken = true;
+      if(it.type === 'cafe'){
+        sndCoffee();
+        poof(it.x+12, it.y+10, '#fff3c8');
+        if(!player.big){
+          player.big = true;
+          player.y -= 12;
+          player.h = 64;
+          floats.push({x:it.x-40, y:it.y-24, t:'¡Cafelito! ¡Luismi crece!', life:80, vy:-0.8});
+        }else if(player.lives < 3){
+          player.lives++;
+          floats.push({x:it.x-30, y:it.y-24, t:'¡Café doble! +1 vida', life:80, vy:-0.8});
+        }else{
+          floats.push({x:it.x-10, y:it.y-24, t:'¡Qué rico!', life:60, vy:-0.8});
+        }
+      }else{
+        player.keysT = 440; // ~7 s de escudo
+        sndKeys();
+        poof(it.x+12, it.y+10, '#ffe28a');
+        floats.push({x:it.x-50, y:it.y-24, t:'¡El manojo de llaves del conserje!', life:90, vy:-0.8});
+      }
     }
   }
 
   /* ---- enemigos ---- */
   for(const e of enemies){
     if(e.dead){ e.squash++; continue; }
+    if(e.temp){
+      e.temp--;
+      if(e.temp <= 0){
+        e.dead = true; e.squash = 0;
+        poof(e.x+14, e.y+12, '#ffffff');
+        continue;
+      }
+    }
 
     const distP = (player.x + player.w/2) - (e.x + e.w/2);
     const onScreen = e.x > camX - 40 && e.x < camX + W + 40;
@@ -627,19 +761,26 @@ function update(){
 
   /* ---- proyectiles de Luismi ---- */
   for(const s of shots){
-    s.vy += 0.32;
-    s.x += s.vx;
-    s.y += s.vy;
-    s.rot += 0.25*Math.sign(s.vx||1);
-    s.life--;
-    for(const sol of solids){
-      if(s.x>sol.x-10 && s.x<sol.x+sol.w && s.y+10 > sol.y && s.y < sol.y && s.vy > 0){
-        s.y = sol.y - 10; s.vy = -5.6;
+    if(s.kind === 'tiza'){
+      s.x += s.vx;
+      s.y += s.vy;
+      s.rot += 0.12*Math.sign(s.vx||1);
+      s.life--;
+    }else{
+      s.vy += 0.32;
+      s.x += s.vx;
+      s.y += s.vy;
+      s.rot += 0.25*Math.sign(s.vx||1);
+      s.life--;
+      for(const sol of solids){
+        if(s.x>sol.x-10 && s.x<sol.x+sol.w && s.y+10 > sol.y && s.y < sol.y && s.vy > 0){
+          s.y = sol.y - 10; s.vy = -5.6;
+        }
       }
-    }
-    for(const p of platforms){
-      if(s.x>p.x-6 && s.x<p.x+p.w && s.y+10 > p.y && s.y+10 < p.y+16 && s.vy > 0){
-        s.y = p.y - 10; s.vy = -5.6;
+      for(const p of platforms){
+        if(s.x>p.x-6 && s.x<p.x+p.w && s.y+10 > p.y && s.y+10 < p.y+16 && s.vy > 0){
+          s.y = p.y - 10; s.vy = -5.6;
+        }
       }
     }
     for(const e of enemies){
@@ -650,7 +791,7 @@ function update(){
     }
     if(boss && !boss.dead && boss.invuln === 0 &&
        s.x+12 > boss.x && s.x < boss.x+boss.w && s.y+12 > boss.y && s.y < boss.y+boss.h){
-      boss.hp -= 3;
+      boss.hp -= (s.kind === 'tiza' ? 2 : 3);
       boss.invuln = 40;
       s.life = 0;
       sndBossHit();
@@ -681,6 +822,45 @@ function update(){
     }
   }
   enemyShots = enemyShots.filter(s => s.life > 0 && s.y < H+60 && s.x > camX-100 && s.x < camX+W+100);
+
+  /* ---- escudo del manojo de llaves ---- */
+  if(player.keysT > 0){
+    player.keysT--;
+    const cx = player.x + player.w/2, cy = player.y + player.h/2;
+    for(let i=0;i<3;i++){
+      const a = frame*0.16 + i*Math.PI*2/3;
+      const kx = cx + Math.cos(a)*40;
+      const ky = cy + Math.sin(a)*40;
+      for(const e of enemies){
+        if(!e.dead && kx > e.x-8 && kx < e.x+e.w+8 && ky > e.y-8 && ky < e.y+e.h+8){
+          killEnemy(e);
+        }
+      }
+      for(const s of enemyShots){
+        if(s.life > 0 && Math.abs(kx-s.x) < 16 && Math.abs(ky-s.y) < 16){
+          s.life = 0;
+          poof(s.x, s.y, '#ffe28a');
+        }
+      }
+      for(const p of papers){
+        if(p.life > 0 && Math.abs(kx-p.x) < 16 && Math.abs(ky-p.y) < 16){
+          p.life = 0;
+          poof(p.x, p.y, '#ffffff');
+        }
+      }
+    }
+  }
+
+  /* ---- timbre del recreo ---- */
+  if(!bossActive && state === 'play'){
+    bellT--;
+    if(bellT <= 0){
+      schoolBell();
+      bellT = 2100 + Math.floor(Math.random()*600);
+    }
+  }
+  if(ringT > 0) ringT--;
+  if(shakeT > 0) shakeT--;
 
   /* ---- jefa final ---- */
   if(boss){
@@ -896,6 +1076,121 @@ function drawBoardDecor(wx){
   rr(x+150, 244, 16, 6, '#c43b3b');    // borrador
 }
 
+function drawGarita(wx){
+  const x = wx - camX;
+  if(x < -180 || x > W+180) return;
+  // caseta de conserjería
+  rr(x, 240, 130, 230, '#7c5a36');
+  rr(x+6, 246, 118, 218, '#94714a');
+  // tejadillo
+  rr(x-8, 232, 146, 14, '#5e4226');
+  // ventanilla con mostrador
+  rr(x+18, 270, 94, 70, '#2c2722');
+  rr(x+22, 274, 86, 62, '#cfe6f4');
+  rr(x+18, 336, 94, 10, '#5e4226');    // mostrador
+  // dentro: taza de café y periódico de Luismi
+  rr(x+38, 320, 14, 12, '#ffffff');
+  rr(x+52, 323, 4, 6, '#ffffff');
+  rr(x+70, 322, 24, 10, '#d8dee8');
+  rr(x+72, 325, 20, 1, '#8a93a0');
+  rr(x+72, 328, 20, 1, '#8a93a0');
+  // tablón de llaves
+  rr(x+24, 360, 82, 56, '#5e4226');
+  for(let i=0;i<3;i++){
+    for(let j=0;j<2;j++){
+      rr(x+34+i*26, 370+j*22, 4, 10, '#e8c14d');
+      rr(x+33+i*26, 378+j*22, 6, 3, '#e8c14d');
+    }
+  }
+  // cartel
+  rr(x+10, 248, 110, 18, '#2e7d5b');
+  ctx.fillStyle = '#fff6e8';
+  ctx.font = 'bold 11px "Courier New", monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('CONSERJERÍA', Math.round(x+65), 261);
+  ctx.textAlign = 'left';
+}
+
+function drawVending(wx){
+  const x = wx - camX;
+  if(x < -100 || x > W+100) return;
+  rr(x, 318, 62, 152, '#b8412f');
+  rr(x+4, 322, 54, 144, '#c8503d');
+  rr(x+8, 330, 46, 52, '#2c2722');     // pantalla
+  ctx.fillStyle = '#ffe28a';
+  ctx.font = 'bold 12px "Courier New", monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('CAFÉ', Math.round(x+31), 352);
+  ctx.fillText('0,50€', Math.round(x+31), 370);
+  ctx.textAlign = 'left';
+  // botones
+  rr(x+12, 392, 10, 8, '#ffe28a');
+  rr(x+26, 392, 10, 8, '#7ce0a3');
+  rr(x+40, 392, 10, 8, '#cfe6f4');
+  // ranura de vasos
+  rr(x+12, 412, 38, 34, '#1c1916');
+  rr(x+24, 432, 14, 12, '#ffffff');    // vasito esperando
+}
+
+function drawItem(it){
+  if(it.taken) return;
+  const y = it.y + Math.sin(it.bob)*3;
+  const x = it.x;
+  if(it.type === 'cafe'){
+    // taza de café humeante
+    rr(x-2, y+22, 28, 4, '#e8e2d4');   // platillo
+    rr(x, y+8, 20, 14, '#ffffff');
+    rr(x+2, y+10, 16, 4, '#6b4326');   // café
+    rr(x+20, y+11, 5, 3, '#ffffff');   // asa
+    rr(x+22, y+14, 3, 4, '#ffffff');
+    // vapor ondulante
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    const w1 = Math.sin(frame*0.1)*3;
+    ctx.fillRect(Math.round(x+5+w1), y-2, 3, 6);
+    ctx.fillRect(Math.round(x+12-w1), y-6, 3, 6);
+  }else{
+    // manojo de llaves girando
+    ctx.save();
+    ctx.translate(x+12, y+12);
+    ctx.rotate(frame*0.05);
+    ctx.strokeStyle = '#e8c14d';
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(0, 0, 6, 0, Math.PI*2); ctx.stroke();
+    rr(4, -2, 12, 4, '#e8c14d');
+    rr(13, 2, 2, 3, '#e8c14d');
+    rr(16, 2, 2, 4, '#e8c14d');
+    ctx.rotate(Math.PI*0.7);
+    rr(4, -2, 11, 4, '#d4ad3a');
+    rr(12, 2, 2, 3, '#d4ad3a');
+    ctx.restore();
+    if(Math.floor(frame/16)%2===0){
+      rr(x+22, y-2, 3, 3, '#fff6e8'); // destello
+    }
+  }
+}
+
+function drawKeysShield(){
+  if(player.keysT <= 0) return;
+  // parpadea cuando está a punto de acabarse
+  if(player.keysT < 90 && Math.floor(frame/5)%2===0) return;
+  const cx = player.x + player.w/2, cy = player.y + player.h/2;
+  for(let i=0;i<3;i++){
+    const a = frame*0.16 + i*Math.PI*2/3;
+    const kx = cx + Math.cos(a)*40;
+    const ky = cy + Math.sin(a)*40;
+    ctx.save();
+    ctx.translate(kx, ky);
+    ctx.rotate(a + Math.PI/2);
+    ctx.strokeStyle = '#e8c14d';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(0, -6, 4, 0, Math.PI*2); ctx.stroke();
+    rr(-2, -2, 4, 12, '#e8c14d');
+    rr(2, 6, 3, 2, '#e8c14d');
+    rr(2, 9, 4, 2, '#e8c14d');
+    ctx.restore();
+  }
+}
+
 function drawBackground(){
   // pared del pasillo
   ctx.fillStyle = '#f1e7d2';
@@ -929,6 +1224,8 @@ function drawBackground(){
     else if(d.type === 'clock') drawClock(d.x);
     else if(d.type === 'extintor') drawExtintor(d.x);
     else if(d.type === 'board') drawBoardDecor(d.x);
+    else if(d.type === 'garita') drawGarita(d.x);
+    else if(d.type === 'vending') drawVending(d.x);
   }
 
   // zócalo verde institucional
@@ -995,7 +1292,8 @@ function drawLuismi(){
 
   ctx.save();
   ctx.translate(Math.round(p.x + p.w/2), Math.round(p.y));
-  ctx.scale(p.dir, 1);
+  const sc = p.h / 52; // grande con el café
+  ctx.scale(p.dir * sc, sc);
   const L = -p.w/2;
 
   const walk = (p.onGround && Math.abs(p.vx)>0.3) ? Math.floor(p.anim/6)%2 : 0;
@@ -1039,6 +1337,12 @@ function drawLuismi(){
   rr(L+8, 14, 22, 6, '#a7a7a7');
   rr(L+11, 19, 16, 2, '#9a9a9a');
   rr(L+15, 15, 8, 2, '#7d7d7d');
+
+  // marca de cabreo
+  if(p.rage > 0){
+    rr(L+29, -11, 3, 9, '#e8455a');
+    rr(L+26, -8, 9, 3, '#e8455a');
+  }
 
   ctx.restore();
 }
@@ -1189,13 +1493,25 @@ function drawFriend(f){
   rr(x+9, y+8, 3, 3, '#222'); rr(x+16, y+8, 3, 3, '#222');
   rr(x+10, y+13, 8, 2, '#8d3b2c');
   rr(x+9, y+12, 2, 2, '#8d3b2c'); rr(x+17, y+12, 2, 2, '#8d3b2c');
+  // nombre del amigo
+  ctx.font = 'bold 12px "Courier New", monospace';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#1c1c28';
+  ctx.fillText(f.name, Math.round(x+15), Math.round(sy-9));
+  ctx.fillStyle = '#fff6e8';
+  ctx.fillText(f.name, Math.round(x+14), Math.round(sy-10));
+  ctx.textAlign = 'left';
 }
 
 function drawShot(s){
   ctx.save();
   ctx.translate(s.x+6, s.y+6);
   ctx.rotate(s.rot);
-  if(s.kind === 'zumo'){
+  if(s.kind === 'tiza'){
+    rr(-7,-2,14,4,'#fdfdf6');
+    rr(-7,-2,14,1,'#ffffff');
+    rr(5,-2,2,4,'#e3ded2');
+  }else if(s.kind === 'zumo'){
     rr(-6,-8,12,16,'#ef8b2e');
     rr(-6,-8,12,4,'#f6b86e');
     rr(-2,-12,2,5,'#fff');
@@ -1342,6 +1658,11 @@ function drawPauseBanner(){
 }
 
 function draw(){
+  const sx = shakeT > 0 ? Math.random()*8 - 4 : 0;
+  const sy2 = shakeT > 0 ? Math.random()*6 - 3 : 0;
+  ctx.save();
+  ctx.translate(Math.round(sx), Math.round(sy2));
+
   drawBackground();
 
   ctx.save();
@@ -1360,12 +1681,14 @@ function draw(){
   ctx.save();
   ctx.translate(-Math.round(camX), 0);
 
+  for(const it of items) drawItem(it);
   for(const f of friends) drawFriend(f);
   for(const e of enemies) drawEnemy(e);
   for(const s of shots) drawShot(s);
   for(const s of enemyShots) drawShot(s);
   for(const p of papers) drawPaper(p);
   drawLuismi();
+  drawKeysShield();
 
   for(const pa of particles){
     ctx.globalAlpha = Math.max(0, pa.life/30);
