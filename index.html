@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Luismi Bro</title>
+<title>Luismi Bro &amp; Alberto Tech</title>
 <style>
   :root{
     --azul-noche:#10142b;
@@ -59,8 +59,11 @@
     box-shadow:0 6px 0 #6e1f3a;
     transition:transform .05s ease;
   }
+  button.alt{background:#7fd0ff;box-shadow:0 6px 0 #1d5a86}
   button:hover{filter:brightness(1.08)}
   button:active{transform:translateY(6px);box-shadow:0 0 0 #6e1f3a}
+  button.alt:active{box-shadow:0 0 0 #1d5a86}
+  .btnrow{display:flex;flex-wrap:wrap;gap:14px;justify-content:center}
   .badge{font-size:12px;letter-spacing:3px;color:#9fb0ff;text-transform:uppercase}
 
   /* ---- botón de pausa ---- */
@@ -110,32 +113,39 @@
 
   <div id="screen-start" class="overlay">
     <div class="badge">IES Valle del Jerte presenta</div>
-    <h1>Luismi Bro</h1>
-    <p class="sub">Luismi, el conserje, recorre el pasillo del instituto saltando pupitres, cajoneras
-    y pilas de libros. Entre alumnos revoltosos, gatos del insti y profes pidiendo la llave,
-    al fondo le espera la profesora de Lengua... y necesita fotocopias.</p>
+    <h1>Luismi Bro<br><span style="font-size:.5em;color:#7fd0ff">&amp; Alberto Tech</span></h1>
+    <p class="sub">Dos pabellones, dos héroes. <b>Luismi</b>, el conserje, defiende el pasillo entre
+    alumnos revoltosos, gatos y profes hasta la profesora de Lengua. <b>Alberto</b>, el informático,
+    cruza del aula al patio del recreo para recuperar el InfoLab de manos de Vicente. Elige por dónde empezar.</p>
     <div class="keys">
       <b>← →</b> correr · <b>ESPACIO</b> saltar (mantén para saltar más alto) · <b>X / Z</b> lanzar · <b>ESC</b> pausa<br>
       En móvil/tablet: usa los <b>botones táctiles</b> en pantalla.<br>
-      Choca con los <b>alumnos amigos</b> para conseguir el poder de disparo.<br>
-      Pisa a los enemigos: <b>alumnos</b> que lanzan comida, <b>gatos</b> que se abalanzan y <b>profes</b> que piden la llave.<br>
-      El <b>café</b> hace grande a Luismi, el <b>manojo de llaves</b> es un escudo giratorio<br>
-      y si le pegan... se cabrea y lanza <b>tizas</b>. ¡Atento al timbre del recreo!
+      Pisa a los enemigos para derrotarlos. El contacto lateral o sus proyectiles te quitan vida.
     </div>
-    <button id="btn-start">Jugar</button>
+    <div class="btnrow">
+      <button id="btn-start">Nivel 1 · Luismi</button>
+      <button id="btn-start2" class="alt">Nivel 2 · Alberto</button>
+    </div>
   </div>
 
   <div id="screen-over" class="overlay hidden">
     <h2>GAME OVER</h2>
-    <p class="sub">Luismi se ha ido a tomarse un café a conserjería. El pasillo queda sin vigilancia...</p>
+    <p class="sub" id="over-text">Se acabaron las vidas. El instituto queda sin vigilancia...</p>
     <button id="btn-retry">Reintentar</button>
   </div>
 
+  <div id="screen-clear" class="overlay hidden">
+    <h2>¡NIVEL COMPLETADO!</h2>
+    <p class="sub">Luismi recupera el pasillo y se gana su café. Pero en el otro pabellón el
+    <b>InfoLab</b> pide ayuda a gritos... y solo hay alguien capaz de arreglarlo:
+    <b>Alberto</b>, el informático del insti.</p>
+    <button id="btn-next" class="alt">Siguiente nivel →</button>
+  </div>
+
   <div id="screen-win" class="overlay hidden">
-    <h1 style="font-size:clamp(22px,4vw,40px)">¡Victoria!<br>Las fotocopias pueden esperar</h1>
-    <p class="sub">La profesora de Lengua acepta la derrota con dignidad gramatical.
-    Luismi vuelve a su garita como el auténtico jefe del pasillo.</p>
-    <button id="btn-again">Jugar otra vez</button>
+    <h1 id="win-title" style="font-size:clamp(22px,4vw,40px)">¡Victoria!</h1>
+    <p class="sub" id="win-text">¡Has ganado!</p>
+    <button id="btn-again">Volver al menú</button>
   </div>
 </div>
 
@@ -150,15 +160,20 @@ const W = cv.width, H = cv.height;
 
 const scrStart = document.getElementById('screen-start');
 const scrOver  = document.getElementById('screen-over');
+const scrClear = document.getElementById('screen-clear');
 const scrWin   = document.getElementById('screen-win');
+const overText = document.getElementById('over-text');
+const winTitle = document.getElementById('win-title');
+const winText  = document.getElementById('win-text');
 const btnPause = document.getElementById('btn-pause');
 const touchUI  = document.getElementById('touch');
 
 const GRAV = 0.55;
-const LEVEL_W = 6800;
 const GROUND_Y = 470;
 
-let state = 'menu';          // menu | play | win | over
+let level = 1;               // 1 = Luismi (pasillo) · 2 = Alberto (patio + InfoLab)
+let LEVEL_W = 6800;          // ancho del nivel activo
+let state = 'menu';          // menu | play | clear | win | over
 let paused = false;
 let frame = 0;
 let camX = 0;
@@ -236,18 +251,19 @@ function togglePause(){
 }
 btnPause.addEventListener('click', ()=>{ audioInit(); togglePause(); });
 
-/* ============================== NIVEL ============================== */
+/* ============================== NIVELES ============================== */
+/* ---- NIVEL 1: el pasillo de Luismi ---- */
+const L1_W = 6800;
 // Suelo sólido (con fosos hacia el sótano entre segmentos)
-const solids = [
+const L1_solids = [
   {x:0,    y:GROUND_Y, w:1500, h:120},
   {x:1620, y:GROUND_Y, w:900,  h:120},
   {x:2660, y:GROUND_Y, w:1100, h:120},
   {x:3900, y:GROUND_Y, w:800,  h:120},
   {x:4840, y:GROUND_Y, w:1960, h:120}
 ];
-
 // Plataformas de una dirección (se aterriza desde arriba)
-const platforms = [
+const L1_platforms = [
   {x:400,  y:378, w:130, h:14, type:'desk'},
   {x:620,  y:330, w:110, h:14, type:'books'},
   {x:800,  y:378, w:130, h:14, type:'desk'},
@@ -272,11 +288,9 @@ const platforms = [
   {x:5210, y:330, w:130, h:14, type:'desk'},
   {x:5460, y:380, w:110, h:14, type:'books'}
 ];
-
-const checkpoints = [80, 1700, 2750, 3980, 4920];
-
+const L1_checkpoints = [80, 1700, 2750, 3980, 4920];
 // Decoración del pasillo del instituto (coordenadas de mundo)
-const decor = [
+const L1_decor = [
   {x:6,    type:'garita'},
   {x:140,  type:'window'},  {x:430,  type:'lockers'}, {x:700,  type:'poster', c:0},
   {x:900,  type:'door', sign:'AULA 1'},
@@ -292,16 +306,86 @@ const decor = [
   {x:5960, type:'clock'},   {x:6180, type:'window'},
   {x:6480, type:'door', sign:'FOTOCOPIAS'}
 ];
-
-const worldTexts = [
+const L1_worldTexts = [
   {x:120,  y:260, t:'← → mover · ESPACIO saltar (mantén)'},
   {x:430,  y:240, t:'¡Choca con el alumno amigo!'},
   {x:5550, y:230, t:'Algo se oye al fondo del pasillo...'}
 ];
 
+/* ---- NIVEL 2: de pabellón a pabellón (Alberto, el informático) ---- */
+const L2_W = 7200;
+const L2_solids = [
+  {x:0,    y:GROUND_Y, w:2100, h:120},   // interior edificio A
+  {x:2300, y:GROUND_Y, w:1500, h:120},   // patio del recreo
+  {x:4000, y:GROUND_Y, w:1400, h:120},   // patio del recreo
+  {x:5600, y:GROUND_Y, w:1600, h:120}    // interior edificio B (InfoLab)
+];
+const L2_platforms = [
+  {x:300,  y:380, w:120, h:14, type:'desk'},
+  {x:560,  y:330, w:110, h:14, type:'books'},
+  {x:900,  y:380, w:90,  h:14, type:'drawer'},
+  {x:1380, y:340, w:140, h:14, type:'desk'},   // mesa del aula (el ORDENADOR va encima)
+  {x:1720, y:380, w:110, h:14, type:'books'},
+  // patio
+  {x:2460, y:380, w:110, h:14, type:'crate'},
+  {x:2760, y:330, w:120, h:14, type:'bench'},
+  {x:3150, y:300, w:110, h:14, type:'crate'},
+  {x:3500, y:360, w:120, h:14, type:'bench'},
+  {x:4120, y:380, w:110, h:14, type:'crate'},
+  {x:4420, y:320, w:120, h:14, type:'bench'},
+  {x:4760, y:360, w:110, h:14, type:'crate'},
+  {x:5080, y:330, w:120, h:14, type:'bench'},
+  // interior edificio B (InfoLab)
+  {x:5750, y:360, w:130, h:14, type:'desk'},
+  {x:6050, y:330, w:110, h:14, type:'books'},
+  {x:6380, y:380, w:90,  h:14, type:'drawer'}
+];
+const L2_checkpoints = [80, 2300, 4000, 5600];
+const L2_decor = [
+  {x:160,  type:'window'},  {x:430,  type:'lockers'}, {x:760,  type:'poster', c:1},
+  {x:1040, type:'door', sign:'AULA'},
+  {x:1380, type:'board'},
+  {x:1760, type:'window'},  {x:2000, type:'door', sign:'PATIO'},
+  // patio (exterior)
+  {x:2500, type:'tree'},    {x:2850, type:'hoop'},    {x:3250, type:'goal'},
+  {x:3750, type:'tree'},    {x:4150, type:'hoop'},    {x:4600, type:'goal'},
+  {x:5050, type:'tree'},
+  // interior edificio B (InfoLab)
+  {x:5650, type:'window'},  {x:5950, type:'pcrow'},   {x:6300, type:'pcrow'},
+  {x:6650, type:'door', sign:'INFOLAB'}
+];
+const L2_worldTexts = [
+  {x:170,  y:260, t:'← → mover · ESPACIO saltar · X/Z lanzar herramientas'},
+  {x:740,  y:240, t:'¡Coge el PENDRIVE: creces y disparas!'},
+  {x:1300, y:250, t:'En el aula: ¡coge el ORDENADOR! (+1 vida)'},
+  {x:1980, y:240, t:'Sal al patio del recreo →'},
+  {x:5380, y:240, t:'InfoLab... ¿quién lo ha pintado todo?'}
+];
+// zonas de fondo del nivel 2 (interior / patio)
+const L2_zones = [
+  {x0:0,    x1:2100, k:'in'},
+  {x0:2100, x1:5400, k:'patio'},
+  {x0:5400, x1:7200, k:'in'}
+];
+
+// geometría del nivel activo (rellenada por loadLevel)
+let solids = L1_solids, platforms = L1_platforms, checkpoints = L1_checkpoints;
+let decor = L1_decor, worldTexts = L1_worldTexts;
+
+function loadLevel(n){
+  level = n;
+  if(n === 1){
+    LEVEL_W = L1_W; solids = L1_solids; platforms = L1_platforms;
+    checkpoints = L1_checkpoints; decor = L1_decor; worldTexts = L1_worldTexts;
+  }else{
+    LEVEL_W = L2_W; solids = L2_solids; platforms = L2_platforms;
+    checkpoints = L2_checkpoints; decor = L2_decor; worldTexts = L2_worldTexts;
+  }
+}
+
 /* ============================== ENTIDADES ============================== */
 let player, enemies, friends, shots, enemyShots, papers, floats, particles, motes, boss, bossActive;
-let items, bellT, ringT, shakeT;
+let items, bellT, ringT, shakeT, bellRung;
 
 function makeEnemy(kind, minX, maxX, surfY, color){
   const base = {
@@ -331,40 +415,70 @@ function makeEnemy(kind, minX, maxX, surfY, color){
 }
 
 function initGame(){
-  player = {
-    x:80, y:GROUND_Y-52, w:36, h:52, vx:0, vy:0,
-    dir:1, onGround:false, lives:3, power:false,
-    invuln:0, shootCd:0, shotToggle:false, anim:0, checkpoint:80, coyote:0,
-    big:false, rage:0, keysT:0
-  };
-  enemies = [
-    makeEnemy('alumno',   680,  900,  GROUND_Y, '#c0392b'),
-    makeEnemy('gato',     1180, 1420, GROUND_Y, '#d98a3d'),
-    makeEnemy('gato',     1700, 1900, GROUND_Y, '#8a8a90'),
-    makeEnemy('alumno',   1950, 2080, 330,      '#d35400'),
-    makeEnemy('profesor', 2240, 2480, GROUND_Y, '#7fa8c9'),
-    makeEnemy('alumno',   2700, 2920, GROUND_Y, '#8e44ad'),
-    makeEnemy('gato',     3060, 3320, GROUND_Y, '#2e2e33'),
-    makeEnemy('profesor', 3540, 3740, GROUND_Y, '#c9b27f'),
-    makeEnemy('alumno',   3950, 4160, GROUND_Y, '#c0392b'),
-    makeEnemy('gato',     4210, 4340, 330,      '#d98a3d'),
-    makeEnemy('profesor', 4900, 5120, GROUND_Y, '#9bc98f'),
-    makeEnemy('alumno',   5160, 5360, GROUND_Y, '#16557d'),
-    makeEnemy('gato',     5430, 5640, GROUND_Y, '#8a8a90')
-  ];
-  friends = [
-    {x:500,  y:GROUND_Y-36, w:28, h:36, taken:false, bob:0, name:'Carlos'},
-    {x:1880, y:GROUND_Y-36, w:28, h:36, taken:false, bob:1, name:'Aitor'},
-    {x:3500, y:GROUND_Y-36, w:28, h:36, taken:false, bob:2, name:'Alejandro'},
-    {x:5700, y:GROUND_Y-36, w:28, h:36, taken:false, bob:3, name:'Jose'}
-  ];
-  items = [
-    {x:1060, y:GROUND_Y-30, type:'cafe',   taken:false, bob:0},
-    {x:2440, y:GROUND_Y-28, type:'llaves', taken:false, bob:1},
-    {x:4450, y:250,         type:'cafe',   taken:false, bob:2},
-    {x:5230, y:300,         type:'llaves', taken:false, bob:3}
-  ];
-  shots = [];      // proyectiles de Luismi
+  if(level === 1){
+    player = {
+      x:80, y:GROUND_Y-52, w:36, h:52, baseH:52, vx:0, vy:0,
+      dir:1, onGround:false, lives:3, power:false, hero:'luismi',
+      invuln:0, shootCd:0, shotToggle:false, anim:0, checkpoint:80, coyote:0,
+      big:false, rage:0, keysT:0
+    };
+    enemies = [
+      makeEnemy('alumno',   680,  900,  GROUND_Y, '#c0392b'),
+      makeEnemy('gato',     1180, 1420, GROUND_Y, '#d98a3d'),
+      makeEnemy('gato',     1700, 1900, GROUND_Y, '#8a8a90'),
+      makeEnemy('alumno',   1950, 2080, 330,      '#d35400'),
+      makeEnemy('profesor', 2240, 2480, GROUND_Y, '#7fa8c9'),
+      makeEnemy('alumno',   2700, 2920, GROUND_Y, '#8e44ad'),
+      makeEnemy('gato',     3060, 3320, GROUND_Y, '#2e2e33'),
+      makeEnemy('profesor', 3540, 3740, GROUND_Y, '#c9b27f'),
+      makeEnemy('alumno',   3950, 4160, GROUND_Y, '#c0392b'),
+      makeEnemy('gato',     4210, 4340, 330,      '#d98a3d'),
+      makeEnemy('profesor', 4900, 5120, GROUND_Y, '#9bc98f'),
+      makeEnemy('alumno',   5160, 5360, GROUND_Y, '#16557d'),
+      makeEnemy('gato',     5430, 5640, GROUND_Y, '#8a8a90')
+    ];
+    friends = [
+      {x:500,  y:GROUND_Y-36, w:28, h:36, taken:false, bob:0, name:'Carlos'},
+      {x:1880, y:GROUND_Y-36, w:28, h:36, taken:false, bob:1, name:'Aitor'},
+      {x:3500, y:GROUND_Y-36, w:28, h:36, taken:false, bob:2, name:'Alejandro'},
+      {x:5700, y:GROUND_Y-36, w:28, h:36, taken:false, bob:3, name:'Jose'}
+    ];
+    items = [
+      {x:1060, y:GROUND_Y-30, type:'cafe',   taken:false, bob:0},
+      {x:2440, y:GROUND_Y-28, type:'llaves', taken:false, bob:1},
+      {x:4450, y:250,         type:'cafe',   taken:false, bob:2},
+      {x:5230, y:300,         type:'llaves', taken:false, bob:3}
+    ];
+  }else{
+    player = {
+      x:80, y:GROUND_Y-50, w:34, h:50, baseH:50, vx:0, vy:0,
+      dir:1, onGround:false, lives:3, power:false, hero:'alberto',
+      invuln:0, shootCd:0, shotToggle:false, anim:0, checkpoint:80, coyote:0,
+      big:false, rage:0, keysT:0
+    };
+    enemies = [
+      makeEnemy('alumno', 520,  760,  GROUND_Y, '#2f6fae'),
+      makeEnemy('gato',   1120, 1360, GROUND_Y, '#d98a3d'),
+      makeEnemy('alumno', 1560, 1760, GROUND_Y, '#c0392b'),
+      // patio
+      makeEnemy('gato',   2360, 2720, GROUND_Y, '#8a8a90'),
+      makeEnemy('alumno', 2800, 3120, GROUND_Y, '#16557d'),
+      makeEnemy('gato',   3220, 3520, GROUND_Y, '#2e2e33'),
+      makeEnemy('alumno', 3950, 4180, GROUND_Y, '#8e44ad'),
+      makeEnemy('gato',   4380, 4720, GROUND_Y, '#d98a3d'),
+      makeEnemy('alumno', 4760, 5080, GROUND_Y, '#c0392b'),
+      // interior edificio B (InfoLab)
+      makeEnemy('gato',   5700, 5980, GROUND_Y, '#8a8a90'),
+      makeEnemy('alumno', 6020, 6280, GROUND_Y, '#2f6fae')
+    ];
+    friends = [];
+    items = [
+      {x:760,  y:GROUND_Y-30, type:'pendrive', taken:false, bob:0},
+      {x:1410, y:300,         type:'pc',       taken:false, bob:1},
+      {x:4450, y:288,         type:'pendrive', taken:false, bob:2}
+    ];
+  }
+  shots = [];      // proyectiles del héroe
   enemyShots = []; // zumos y bocadillos de los alumnos revoltosos
   papers = [];     // folios de la jefa
   floats = [];
@@ -378,6 +492,7 @@ function initGame(){
   bellT = 1500;   // primer timbre a los ~25 s
   ringT = 0;
   shakeT = 0;
+  bellRung = false;
   btnPause.textContent = '❚❚';
 
   // motas de polvo flotando a contraluz (ambiente de pasillo)
@@ -393,9 +508,11 @@ function spawnBoss(){
   boss = {
     x:LEVEL_W-220, y:GROUND_Y-104, w:64, h:104,
     vx:0, vy:0, hp:15, maxHp:15, invuln:0,
-    shootTimer:140, bubble:0, hopTimer:240, dead:false, deadT:0, anim:0
+    shootTimer:140, bubble:0, hopTimer:240, dead:false, deadT:0, anim:0,
+    paintColor:'#2f8fae', paintIdx:0
   };
-  floats.push({x:boss.x-40, y:boss.y-60, t:'¡¡LA PROFESORA DE LENGUA!!', life:140, vy:-0.3, big:true});
+  const name = level === 1 ? '¡¡LA PROFESORA DE LENGUA!!' : '¡¡VICENTE, PROFE DE PLÁSTICA!!';
+  floats.push({x:boss.x-40, y:boss.y-60, t:name, life:140, vy:-0.3, big:true});
   sfx(110,0.5,'sawtooth',70);
 }
 
@@ -467,29 +584,56 @@ function enrage(){
   player.rage = 360; // ~6 s lanzando tizas
 }
 
+// crecer estilo Mario (café en N1, pendrive/ordenador en N2): aguanta un golpe extra
+function grow(){
+  if(player.big) return;
+  player.big = true;
+  player.y -= 12;
+  player.h = player.baseH + 12;
+}
+
+function gameOver(){
+  state = 'over';
+  btnPause.classList.add('hidden');
+  overText.textContent = level === 1
+    ? 'Luismi se ha ido a tomarse un café a conserjería. El pasillo queda sin vigilancia...'
+    : 'A Alberto se le ha colgado el sistema. El InfoLab sigue en manos de Vicente...';
+  setTimeout(()=>scrOver.classList.remove('hidden'), 450);
+}
+
+function winLevel(){
+  btnPause.classList.add('hidden');
+  if(level === 1){
+    state = 'clear';
+    scrClear.classList.remove('hidden');
+  }else{
+    state = 'win';
+    winTitle.innerHTML = '¡InfoLab recuperado!';
+    winText.textContent = 'Alberto formatea el caos de pintura, reinstala la calma y deja los '
+      + 'ordenadores como nuevos. Vicente tendrá que pintar sus murales en otra parte.';
+    scrWin.classList.remove('hidden');
+  }
+}
+
 function hurtPlayer(knockDir){
   if(player.invuln > 0) return;
-  enrage();
+  if(level === 1) enrage();   // Luismi se cabrea y lanza tizas (mecánica del nivel 1)
   if(player.big){
-    // con el café puesto aguanta un golpe: encoge en vez de perder vida
+    // con el café / pendrive aguanta un golpe: encoge en vez de perder vida
     player.big = false;
-    player.h = 52;
+    if(level === 2) player.power = false;   // Alberto pierde las herramientas al encoger
+    player.h = player.baseH;
     player.y += 12;
     player.invuln = 110;
     player.vy = -7;
     player.vx = 5*knockDir;
     sndHurt();
-    floats.push({x:player.x, y:player.y-20, t:'¡Sin café!', life:50, vy:-1});
+    floats.push({x:player.x, y:player.y-20, t:level===1?'¡Sin café!':'¡Virus!', life:50, vy:-1});
     return;
   }
   player.lives--;
   sndHurt();
-  if(player.lives <= 0){
-    state = 'over';
-    btnPause.classList.add('hidden');
-    setTimeout(()=>scrOver.classList.remove('hidden'), 450);
-    return;
-  }
+  if(player.lives <= 0){ gameOver(); return; }
   player.invuln = 110;
   player.vy = -7;
   player.vx = 5*knockDir;
@@ -499,17 +643,13 @@ function hurtPlayer(knockDir){
 function pitDeath(){
   player.lives--;
   sndHurt();
-  if(player.lives <= 0){
-    state = 'over';
-    btnPause.classList.add('hidden');
-    setTimeout(()=>scrOver.classList.remove('hidden'), 450);
-    return;
-  }
+  if(player.lives <= 0){ gameOver(); return; }
   player.x = player.checkpoint;
-  player.y = GROUND_Y - 52 - 10;
+  player.y = GROUND_Y - player.baseH - 10;
+  if(player.big) player.y -= 12;
   player.vx = 0; player.vy = 0;
   player.invuln = 90;
-  floats.push({x:player.x, y:player.y-30, t:'¡Al sótano no!', life:60, vy:-1});
+  floats.push({x:player.x, y:player.y-30, t:level===1?'¡Al sótano no!':'¡Cuidado!', life:60, vy:-1});
 }
 
 function poof(x,y,color){
@@ -593,11 +733,14 @@ function update(){
     }else{
       player.shootCd = 24;
       player.shotToggle = !player.shotToggle;
+      const kind = level === 1
+        ? (player.shotToggle ? 'zumo' : 'bocadillo')
+        : (player.shotToggle ? 'destornillador' : 'llave');
       shots.push({
         x: player.x + (player.dir>0 ? player.w+2 : -14),
         y: player.y + 18,
         vx: 7*player.dir, vy: -4.2,
-        kind: player.shotToggle ? 'zumo' : 'bocadillo',
+        kind: kind,
         life: 240, rot:0
       });
       sndShoot();
@@ -606,6 +749,14 @@ function update(){
 
   if(player.y > H + 80 && state === 'play') pitDeath();
   if(state !== 'play') return;
+
+  // timbre del recreo al salir al patio (solo nivel 2)
+  if(level === 2 && !bellRung && player.x > 2100){
+    bellRung = true;
+    ringT = 90; shakeT = 30;
+    sndBell();
+    floats.push({x:player.x-20, y:player.y-34, t:'¡RECREO!', life:80, vy:-0.7, big:true});
+  }
 
   for(const c of checkpoints){
     if(player.x >= c && c > player.checkpoint) player.checkpoint = c;
@@ -642,7 +793,7 @@ function update(){
     }
   }
 
-  /* ---- objetos: café y manojo de llaves ---- */
+  /* ---- objetos recogibles (café/llaves en N1 · pendrive/ordenador en N2) ---- */
   for(const it of items){
     if(it.taken) continue;
     it.bob += 0.07;
@@ -653,9 +804,7 @@ function update(){
         sndCoffee();
         poof(it.x+12, it.y+10, '#fff3c8');
         if(!player.big){
-          player.big = true;
-          player.y -= 12;
-          player.h = 64;
+          grow();
           floats.push({x:it.x-40, y:it.y-24, t:'¡Cafelito! ¡Luismi crece!', life:80, vy:-0.8});
         }else if(player.lives < 3){
           player.lives++;
@@ -663,11 +812,24 @@ function update(){
         }else{
           floats.push({x:it.x-10, y:it.y-24, t:'¡Qué rico!', life:60, vy:-0.8});
         }
-      }else{
+      }else if(it.type === 'llaves'){
         player.keysT = 440; // ~7 s de escudo
         sndKeys();
         poof(it.x+12, it.y+10, '#ffe28a');
         floats.push({x:it.x-50, y:it.y-24, t:'¡El manojo de llaves del conserje!', life:90, vy:-0.8});
+      }else if(it.type === 'pendrive'){
+        sndPower();
+        poof(it.x+11, it.y+10, '#7ce0a3');
+        if(!player.big) grow();
+        player.power = true;     // escudo antivirus + lanzar herramientas
+        floats.push({x:it.x-50, y:it.y-26, t:'¡Pendrive! Antivirus + herramientas (X/Z)', life:100, vy:-0.7});
+      }else{ // ordenador-premio del aula
+        player.lives++;
+        if(!player.big) grow();
+        player.power = true;
+        sndWin();
+        poof(it.x+12, it.y+12, '#ffe28a');
+        floats.push({x:it.x-30, y:it.y-30, t:'¡ORDENADOR! +1 vida', life:100, vy:-0.7, big:true});
       }
     }
   }
@@ -737,7 +899,8 @@ function update(){
             y: e.y + 6,
             vx: (2.6 + Math.abs(distP)/240) * dir,
             vy: -6.2,
-            kind: e.shotToggle ? 'zumo' : 'bocadillo',
+            kind: level === 1 ? (e.shotToggle ? 'zumo' : 'bocadillo')
+                              : (e.shotToggle ? 'raton' : 'teclado'),
             rot: 0, life: 240
           });
           sfx(620,0.08,'square',360);
@@ -851,8 +1014,8 @@ function update(){
     }
   }
 
-  /* ---- timbre del recreo ---- */
-  if(!bossActive && state === 'play'){
+  /* ---- timbre del recreo (oleadas, solo nivel 1) ---- */
+  if(level === 1 && !bossActive && state === 'play'){
     bellT--;
     if(bellT <= 0){
       schoolBell();
@@ -870,9 +1033,7 @@ function update(){
       boss.y += boss.vy;
       if(boss.deadT === 1){ sndWin(); }
       if(boss.deadT > 95){
-        state = 'win';
-        btnPause.classList.add('hidden');
-        scrWin.classList.remove('hidden');
+        winLevel();
       }
     }else{
       boss.anim++;
@@ -901,9 +1062,16 @@ function update(){
         boss.bubble--;
         if(boss.bubble === 45){
           const dir = toPlayer || -1;
+          const pal = ['#2f8fae','#e8455a','#f2b134','#7ce0a3'];
           for(let i=-1;i<=1;i++){
-            papers.push({x:boss.x + (dir>0?boss.w:-16), y:boss.y+34,
-                         vx:5.2*dir, vy:i*1.4, ph:Math.random()*6, life:200});
+            const proj = {x:boss.x + (dir>0?boss.w:-16), y:boss.y+34,
+                          vx:5.2*dir, vy:i*1.4, ph:Math.random()*6, life:200};
+            if(level === 2){
+              boss.paintIdx = (boss.paintIdx+1) % pal.length;
+              proj.c = pal[boss.paintIdx];
+              boss.paintColor = proj.c;
+            }
+            papers.push(proj);
           }
           sfx(700,0.12,'square',300);
         }
@@ -928,7 +1096,8 @@ function update(){
         boss.deadT = 0;
         boss.vy = -9;
         papers.length = 0;
-        floats.push({x:boss.x-60, y:boss.y-40, t:'¡Las fotocopias pueden esperar!', life:110, vy:-0.6, big:true});
+        const msg = level === 1 ? '¡Las fotocopias pueden esperar!' : '¡El InfoLab vuelve a la vida!';
+        floats.push({x:boss.x-60, y:boss.y-40, t:msg, life:110, vy:-0.6, big:true});
       }
     }
   }
@@ -1134,6 +1303,8 @@ function drawVending(wx){
 
 function drawItem(it){
   if(it.taken) return;
+  if(it.type === 'pendrive'){ drawPendrive(it); return; }
+  if(it.type === 'pc'){ drawPC(it); return; }
   const y = it.y + Math.sin(it.bob)*3;
   const x = it.x;
   if(it.type === 'cafe'){
@@ -1191,6 +1362,165 @@ function drawKeysShield(){
   }
 }
 
+/* --- decoración exterior del patio (nivel 2) --- */
+function drawCloud(x,y){
+  ctx.beginPath();
+  ctx.arc(x, y, 18, 0, Math.PI*2);
+  ctx.arc(x+22, y+4, 22, 0, Math.PI*2);
+  ctx.arc(x+48, y, 16, 0, Math.PI*2);
+  ctx.arc(x+24, y-10, 16, 0, Math.PI*2);
+  ctx.fill();
+}
+
+function drawGoal(wx){
+  const x = wx - camX;
+  if(x < -220 || x > W+220) return;
+  const top = GROUND_Y - 150;
+  rr(x, top, 8, 150, '#f4f4ee');
+  rr(x+140, top, 8, 150, '#f4f4ee');
+  rr(x, top, 148, 8, '#f4f4ee');
+  ctx.strokeStyle = 'rgba(255,255,255,0.45)'; ctx.lineWidth = 1;
+  for(let i=1;i<8;i++){ ctx.beginPath(); ctx.moveTo(x+8+i*16, top+8); ctx.lineTo(x+8+i*16, GROUND_Y); ctx.stroke(); }
+  for(let j=1;j<6;j++){ ctx.beginPath(); ctx.moveTo(x+8, top+8+j*23); ctx.lineTo(x+148, top+8+j*23); ctx.stroke(); }
+}
+
+function drawHoop(wx){
+  const x = wx - camX;
+  if(x < -120 || x > W+120) return;
+  rr(x+20, 180, 6, GROUND_Y-180, '#8a8f96');
+  rr(x-14, 150, 40, 30, '#f4f4ee');
+  rr(x-10, 154, 32, 22, '#dfe6ec');
+  rr(x-2, 162, 16, 10, '#c7d2da');
+  rr(x-6, 178, 24, 4, '#e8702e');
+  ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = 1;
+  for(let i=0;i<6;i++){ ctx.beginPath(); ctx.moveTo(x-6+i*5, 182); ctx.lineTo(x-2+i*4, 198); ctx.stroke(); }
+}
+
+function drawTree(wx){
+  const x = wx - camX;
+  if(x < -140 || x > W+140) return;
+  rr(x+18, 300, 12, GROUND_Y-300, '#6e4a2e');
+  ctx.fillStyle = '#4f9e5c';
+  ctx.beginPath(); ctx.arc(x+24, 288, 34, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(x, 300, 24, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(x+48, 300, 24, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#3f8a4d';
+  ctx.beginPath(); ctx.arc(x+24, 300, 26, 0, Math.PI*2); ctx.fill();
+}
+
+function drawPCRow(wx){
+  const x = wx - camX;
+  if(x < -200 || x > W+200) return;
+  rr(x-6, 360, 200, 60, '#9a7b4f');
+  rr(x-6, 360, 200, 5, '#b08d5d');
+  for(let i=0;i<3;i++){
+    const mx = x + 14 + i*62;
+    rr(mx, 320, 44, 32, '#23232b');
+    rr(mx+3, 323, 38, 26, '#2f8fae');
+    rr(mx+6, 326, 12, 4, '#bfe3f0');
+    rr(mx+18, 352, 8, 6, '#15151a');
+    rr(mx+8, 358, 28, 3, '#2b2b30');
+  }
+}
+
+function drawPendrive(it){
+  const y = it.y + Math.sin(it.bob)*3, x = it.x;
+  ctx.fillStyle = 'rgba(124,224,163,0.25)';
+  ctx.beginPath(); ctx.arc(x+11, y+12, 16, 0, Math.PI*2); ctx.fill();
+  rr(x+2, y+6, 16, 12, '#2b2f6b');
+  rr(x+2, y+6, 16, 3, '#3a3f8f');
+  rr(x+16, y+8, 8, 8, '#c7ccd6');
+  rr(x+18, y+9, 2, 6, '#9aa0ad');
+  rr(x+5, y+10, 6, 2, '#7ce0a3');
+}
+
+function drawPC(it){
+  const y = it.y + Math.sin(it.bob)*3, x = it.x;
+  ctx.fillStyle = 'rgba(255,226,138,0.30)';
+  ctx.beginPath(); ctx.arc(x+17, y+15, 24, 0, Math.PI*2); ctx.fill();
+  rr(x, y, 34, 26, '#23232b');
+  rr(x+3, y+3, 28, 18, '#2f8fae');
+  rr(x+5, y+5, 10, 3, '#bfe3f0');
+  rr(x+13, y+26, 8, 5, '#15151a');
+  rr(x+6, y+31, 22, 4, '#2b2b30');
+  ctx.fillStyle = '#ffe28a';
+  ctx.font = 'bold 13px "Courier New", monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('★', x+17, y-4);
+  ctx.textAlign = 'left';
+}
+
+/* --- fondo del nivel 2: interior A → patio del recreo → interior B (InfoLab) --- */
+function drawHallZone(){
+  ctx.fillStyle = '#f1e7d2';
+  ctx.fillRect(0,0,W,H);
+  rr(0, 0, W, 44, '#e3d8c0');
+  rr(0, 42, W, 4, '#cfc4aa');
+  ctx.fillStyle = '#d6cab0';
+  const ceilOff = -((camX) % 120);
+  for(let lx = ceilOff; lx < W; lx += 120) ctx.fillRect(Math.round(lx), 0, 2, 42);
+  const flOff = -((camX) % 480);
+  for(let lx = flOff - 480; lx < W + 480; lx += 480){
+    rr(lx+170, 12, 140, 10, '#fdfdf6');
+    rr(lx+166, 20, 148, 3, '#cfc4aa');
+    ctx.fillStyle = 'rgba(255,252,230,0.18)';
+    ctx.beginPath();
+    ctx.moveTo(lx+170, 22); ctx.lineTo(lx+310, 22);
+    ctx.lineTo(lx+360, 150); ctx.lineTo(lx+120, 150);
+    ctx.closePath(); ctx.fill();
+  }
+  rr(0, 420, W, 50, '#5f8f76');
+  rr(0, 420, W, 5, '#4c7a62');
+}
+
+function drawPatioZone(){
+  const g = ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'#6db7ec'); g.addColorStop(0.55,'#a9d8f5'); g.addColorStop(1,'#e7f5ff');
+  ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle = 'rgba(255,245,200,0.9)';
+  ctx.beginPath(); ctx.arc(W-90, 80, 34, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.9)';
+  const cl = -((camX*0.4) % 420);
+  for(let lx = cl-420; lx < W+420; lx += 420){ drawCloud(lx+60, 90); drawCloud(lx+250, 140); }
+  rr(0, 300, W, 8, '#9aa7b3');
+  const fOff = -((camX*0.6) % 40);
+  for(let x = fOff; x < W; x += 40) rr(x, 300, 4, 70, '#b3bfc9');
+  rr(0, 360, W, GROUND_Y-360, '#7cb06a');
+  rr(0, 360, W, 5, '#6aa157');
+}
+
+function drawBackgroundL2(){
+  for(const z of L2_zones){
+    const sx0 = z.x0 - camX, sx1 = z.x1 - camX;
+    if(sx1 < 0 || sx0 > W) continue;
+    const a = Math.max(0, sx0), b = Math.min(W, sx1);
+    ctx.save();
+    ctx.beginPath(); ctx.rect(a, 0, b-a, H); ctx.clip();
+    if(z.k === 'in') drawHallZone(); else drawPatioZone();
+    ctx.restore();
+  }
+  for(const d of decor){
+    switch(d.type){
+      case 'window':  drawWindow(d.x); break;
+      case 'lockers': drawLockers(d.x); break;
+      case 'poster':  drawPoster(d.x, d.c||0); break;
+      case 'door':    drawDoor(d.x, d.sign||'AULA'); break;
+      case 'board':   drawBoardDecor(d.x); break;
+      case 'clock':   drawClock(d.x); break;
+      case 'extintor':drawExtintor(d.x); break;
+      case 'goal':    drawGoal(d.x); break;
+      case 'hoop':    drawHoop(d.x); break;
+      case 'tree':    drawTree(d.x); break;
+      case 'pcrow':   drawPCRow(d.x); break;
+    }
+  }
+  // sótano / hueco bajo el suelo (se ve en los fosos)
+  rr(0, GROUND_Y, W, H-GROUND_Y, '#2c2722');
+  ctx.fillStyle = '#211d19';
+  const pOff = -((camX) % 90);
+  for(let lx = pOff; lx < W; lx += 90) ctx.fillRect(Math.round(lx), GROUND_Y+30, 44, 8);
+}
+
 function drawBackground(){
   // pared del pasillo
   ctx.fillStyle = '#f1e7d2';
@@ -1240,19 +1570,39 @@ function drawBackground(){
 }
 
 function drawGroundAndPlatforms(){
-  // suelo: terrazo de pasillo
+  // suelo: terrazo de pasillo (interiores) o asfalto de cancha (patio del nivel 2)
   for(const s of solids){
     const x = s.x - camX;
     if(x+s.w < -20 || x > W+20) continue;
-    rr(x, s.y, s.w, s.h, '#c9c2b4');
-    rr(x, s.y, s.w, 6, '#b5ad9e');
-    ctx.fillStyle = '#b0a898';
-    for(let i=0;i<s.w;i+=40){
-      ctx.fillRect(Math.round(x+i), s.y+6, 2, s.h-6);
+    const patio = (level === 2 && s.x >= 2100 && s.x < 5400);
+    if(patio){
+      rr(x, s.y, s.w, s.h, '#6e7478');
+      rr(x, s.y, s.w, 6, '#7c8286');
+      ctx.fillStyle = '#62686c';
+      for(let i=0;i<s.w;i+=46) ctx.fillRect(Math.round(x+i), s.y+16, 3, 3);
+      ctx.fillStyle = 'rgba(255,255,255,0.85)';
+      ctx.fillRect(Math.round(x), s.y+10, s.w, 4);   // línea de banda
+    }else{
+      rr(x, s.y, s.w, s.h, '#c9c2b4');
+      rr(x, s.y, s.w, 6, '#b5ad9e');
+      ctx.fillStyle = '#b0a898';
+      for(let i=0;i<s.w;i+=40){
+        ctx.fillRect(Math.round(x+i), s.y+6, 2, s.h-6);
+      }
+      ctx.fillStyle = '#a39b8c';
+      for(let i=0;i<s.w;i+=40){
+        ctx.fillRect(Math.round(x+i+((s.x+i)%3)*9), s.y+40+((s.x+i)%4)*12, 7, 4);
+      }
     }
-    ctx.fillStyle = '#a39b8c';
-    for(let i=0;i<s.w;i+=40){
-      ctx.fillRect(Math.round(x+i+((s.x+i)%3)*9), s.y+40+((s.x+i)%4)*12, 7, 4);
+  }
+
+  // círculo central de la cancha (nivel 2)
+  if(level === 2){
+    const cc = 3750 - camX;
+    if(cc > -120 && cc < W+120){
+      ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.arc(cc, GROUND_Y+34, 46, 0, Math.PI*2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cc, GROUND_Y+2); ctx.lineTo(cc, GROUND_Y+92); ctx.stroke();
     }
   }
 
@@ -1274,13 +1624,25 @@ function drawGroundAndPlatforms(){
       ctx.fillRect(Math.round(x+10), p.y+27, p.w-20, 2);
       ctx.fillRect(Math.round(x+14), p.y+15, p.w-28, 2);
       ctx.fillRect(Math.round(x+18), p.y+3,  p.w-36, 2);
-    }else{ // drawer
+    }else if(p.type === 'drawer'){
       rr(x, p.y, p.w, 90, '#9a7b4f');
       rr(x, p.y, p.w, 4, '#b08d5d');
       for(let i=0;i<3;i++){
         rr(x+6, p.y+10+i*26, p.w-12, 20, '#7c603a');
         rr(x+p.w/2-8, p.y+18+i*26, 16, 4, '#d9c08e');
       }
+    }else if(p.type === 'crate'){
+      rr(x, p.y, p.w, 44, '#a9763f');
+      rr(x, p.y, p.w, 4, '#c08a4e');
+      rr(x, p.y+40, p.w, 4, '#7c5630');
+      ctx.strokeStyle = '#7c5630'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(x, p.y); ctx.lineTo(x+p.w, p.y+44); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x+p.w, p.y); ctx.lineTo(x, p.y+44); ctx.stroke();
+    }else if(p.type === 'bench'){
+      rr(x, p.y, p.w, 8, '#c4843f');
+      rr(x, p.y, p.w, 3, '#d99a55');
+      rr(x+6, p.y+8, 6, 28, '#7c5630');
+      rr(x+p.w-12, p.y+8, 6, 28, '#7c5630');
     }
   }
 }
@@ -1345,6 +1707,82 @@ function drawLuismi(){
   }
 
   ctx.restore();
+}
+
+/* ---- ALBERTO (nivel 2) ----
+   Rasgos de la foto: delgado, entradas marcadas, gafas rectangulares de montura
+   oscura, perilla con alguna cana, camiseta azul marino de cuello en V (ribete
+   blanco + logo verde), pantalón rosa y smartwatch negro. Marco base 34x50. */
+function drawAlberto(){
+  const p = player;
+  if(p.invuln > 0 && Math.floor(frame/4)%2 === 0) return;
+
+  ctx.save();
+  ctx.translate(Math.round(p.x + p.w/2), Math.round(p.y));
+  const sc = p.h / p.baseH;  // crece con el pendrive/ordenador
+  ctx.scale(p.dir * sc, sc);
+  const L = -17;
+
+  const walk = (p.onGround && Math.abs(p.vx)>0.3) ? Math.floor(p.anim/6)%2 : 0;
+  const jumping = !p.onGround;
+
+  // piernas (pantalón rosa) + zapatos oscuros
+  if(jumping){
+    rr(L+5, 40, 9, 8, '#f293b6'); rr(L+20, 42, 9, 6, '#f293b6');
+    rr(L+3, 46, 12, 5, '#3a2f33'); rr(L+19, 46, 12, 5, '#3a2f33');
+  }else if(walk === 0){
+    rr(L+5, 40, 9, 9, '#f293b6'); rr(L+20, 40, 9, 9, '#f293b6');
+    rr(L+3, 48, 12, 4, '#3a2f33'); rr(L+19, 48, 12, 4, '#3a2f33');
+  }else{
+    rr(L+7, 40, 9, 9, '#f293b6'); rr(L+18, 40, 9, 9, '#f293b6');
+    rr(L+5, 48, 12, 4, '#3a2f33'); rr(L+17, 48, 12, 4, '#3a2f33');
+  }
+
+  // torso: camiseta azul marino con cuello en V
+  rr(L+3, 18, 28, 22, '#1c2238');
+  rr(L+11, 18, 12, 3, '#f4f4ee');     // ribete blanco del cuello
+  rr(L+13, 21, 8, 3, '#f4f4ee');
+  rr(L+15, 21, 4, 4, '#ecbd92');      // piel en la uve
+  rr(L+24, 27, 4, 3, '#3fae6a');      // logo verde
+
+  // brazo trasero
+  rr(L-1, 20, 5, 13, '#1c2238'); rr(L-1, 32, 5, 3, '#ecbd92');
+
+  // brazo delantero / pose de disparo + smartwatch
+  const shooting = p.shootCd > 14;
+  if(shooting){
+    rr(L+28, 22, 8, 6, '#1c2238');
+    rr(L+36, 23, 5, 5, '#ecbd92');
+  }else{
+    rr(L+27, 20, 5, 12, '#1c2238');
+    rr(L+27, 30, 5, 3, '#15151a');    // correa del smartwatch
+    rr(L+27, 33, 5, 3, '#ecbd92');    // mano
+  }
+
+  // cabeza
+  rr(L+8, 4, 18, 15, '#ecbd92');
+  // pelo: lados y atrás, con entradas (frente despejada)
+  rr(L+6, 3, 4, 12, '#241a12');
+  rr(L+24, 3, 4, 12, '#241a12');
+  rr(L+8, 1, 18, 3, '#241a12');       // línea de pelo hacia atrás
+  rr(L+7, 5, 2, 7, '#241a12');        // patillas
+  rr(L+25, 5, 2, 7, '#241a12');
+  // gafas rectangulares de montura oscura
+  rr(L+9, 8, 7, 5, '#2b2b30');
+  rr(L+18, 8, 7, 5, '#2b2b30');
+  rr(L+16, 9, 2, 2, '#2b2b30');       // puente
+  rr(L+10, 9, 5, 3, '#bcd2e0');       // cristales
+  rr(L+19, 9, 5, 3, '#bcd2e0');
+  // bigote + perilla (con cana)
+  rr(L+13, 15, 8, 2, '#3a2a1e');
+  rr(L+15, 17, 4, 3, '#2e2114');
+  rr(L+16, 16, 1, 1, '#9a9a9a');
+
+  ctx.restore();
+}
+
+function drawHero(){
+  if(player.hero === 'luismi') drawLuismi(); else drawAlberto();
 }
 
 /* ---- enemigos ---- */
@@ -1517,12 +1955,34 @@ function drawShot(s){
     rr(-2,-12,2,5,'#fff');
     ctx.fillStyle='#fff'; ctx.fillRect(-4,-2,8,6);
     ctx.fillStyle='#c8611a'; ctx.fillRect(-3,-1,6,4);
-  }else{
+  }else if(s.kind === 'bocadillo'){
     ctx.fillStyle = '#e0a85c';
     ctx.beginPath(); ctx.ellipse(0,0,11,6,0,0,Math.PI*2); ctx.fill();
     ctx.fillStyle = '#f3cf97';
     ctx.beginPath(); ctx.ellipse(0,-2,10,4,0,0,Math.PI*2); ctx.fill();
     rr(-8,-1,16,2,'#b5443a');
+  }else if(s.kind === 'destornillador'){
+    rr(-9,-2,9,4,'#e8455a');        // mango rojo
+    rr(0,-1,3,2,'#cdd1d6');         // cuello
+    rr(3,-1,8,2,'#aeb4bd');         // varilla metálica
+    rr(11,-1,2,2,'#7d828c');        // punta
+  }else if(s.kind === 'llave'){
+    rr(-8,-2,16,4,'#b9bdc2');       // cuerpo de la llave inglesa
+    rr(-9,-4,5,3,'#9aa0ad');        // boca fija
+    rr(-9,1,5,3,'#9aa0ad');
+    rr(6,-3,4,6,'#9aa0ad');         // cabeza
+  }else if(s.kind === 'raton'){
+    ctx.fillStyle = '#dfe3ea';
+    ctx.beginPath(); ctx.ellipse(0,0,7,9,0,0,Math.PI*2); ctx.fill();
+    rr(-3,-8,2,5,'#b9bdc2');        // botones
+    rr(1,-8,2,5,'#b9bdc2');
+    ctx.strokeStyle='#9aa0ad'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(0,-9); ctx.lineTo(0,-14); ctx.stroke();
+  }else{ // teclado
+    rr(-9,-5,18,10,'#2b2b30');
+    rr(-9,-5,18,2,'#3a3a44');
+    ctx.fillStyle='#cdd1d6';
+    for(let i=0;i<4;i++) for(let j=0;j<2;j++) ctx.fillRect(-7+i*4, -2+j*4, 3, 3);
   }
   ctx.restore();
 }
@@ -1530,11 +1990,66 @@ function drawShot(s){
 function drawPaper(p){
   ctx.save();
   ctx.translate(p.x+8, p.y+10);
-  ctx.rotate(Math.sin(p.ph)*0.5);
-  rr(-7,-10,14,20,'#ffffff');
-  ctx.fillStyle='#aab4c2';
-  for(let i=0;i<4;i++) ctx.fillRect(-5,-7+i*5,10,2);
+  if(level === 1){
+    ctx.rotate(Math.sin(p.ph)*0.5);
+    rr(-7,-10,14,20,'#ffffff');
+    ctx.fillStyle='#aab4c2';
+    for(let i=0;i<4;i++) ctx.fillRect(-5,-7+i*5,10,2);
+  }else{
+    // salpicadura de pintura del jefe Vicente
+    const c = p.c || '#2f8fae';
+    ctx.fillStyle = c;
+    ctx.beginPath(); ctx.arc(0,0,8,0,Math.PI*2); ctx.fill();
+    ctx.fillRect(-12,-2,5,3); ctx.fillRect(8,-4,4,3);
+    ctx.fillRect(-3,8,3,4); ctx.fillRect(6,6,3,3);
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.fillRect(-3,-4,3,3);
+  }
   ctx.restore();
+}
+
+// VICENTE (jefe nivel 2): pelo rizado voluminoso, perilla, camiseta granate,
+// pantalón oscuro y una brocha gigante que gotea pintura.
+function drawVicenteBody(b){
+  const walk = Math.floor(b.anim/9)%2;
+  // piernas (pantalón oscuro) + zapatos
+  rr(18, 74+(walk?1:0), 11, 22, '#23232b');
+  rr(36, 74+(walk?0:1), 11, 22, '#23232b');
+  rr(15, 94, 16, 6, '#15151a');
+  rr(34, 94, 16, 6, '#15151a');
+  // torso (camiseta granate con logo)
+  rr(12, 40, 40, 36, '#9e2230');
+  rr(12, 40, 40, 4, '#b83547');
+  rr(28, 54, 8, 8, '#3a0f16');
+  // brazo izq (abajo)
+  rr(4, 42, 9, 26, '#9e2230'); rr(4, 66, 9, 5, '#eebd95');
+  // brazo der levantado (sujeta la brocha)
+  rr(50, 30, 9, 18, '#9e2230');
+  rr(52, 24, 7, 8, '#eebd95');
+  // cabeza
+  rr(20, 14, 24, 22, '#eebd95');
+  // pelo rizado voluminoso (bloques de rizos)
+  ctx.fillStyle = '#2a1d12';
+  ctx.fillRect(16, 2, 32, 12);
+  ctx.fillRect(12, 6, 8, 14);
+  ctx.fillRect(44, 6, 8, 14);
+  ctx.fillRect(18, -1, 7, 5);
+  ctx.fillRect(28, -3, 8, 5);
+  ctx.fillRect(38, -1, 7, 5);
+  ctx.fillRect(13, 12, 5, 7);
+  ctx.fillRect(46, 12, 5, 7);
+  // ojos + ceja combativa
+  rr(24, 20, 5, 4, '#0c0c0f'); rr(35, 20, 5, 4, '#0c0c0f');
+  rr(24, 18, 6, 1, '#2a1d12'); rr(34, 18, 6, 1, '#2a1d12');
+  // perilla + boca
+  rr(28, 30, 8, 2, '#3a2a1e'); rr(30, 32, 4, 3, '#2a1d12');
+  rr(30, 26, 5, 3, '#9a3b3b');
+  // brocha gigante
+  rr(56, -20, 5, 48, '#7a4a22');   // mango
+  rr(53, 28, 11, 8, '#b9bdc2');    // virola
+  rr(52, 36, 13, 12, '#caa94e');   // cerdas
+  rr(54, 46, 9, 9, b.paintColor || '#2f8fae'); // pintura goteando
+  rr(56, 54, 4, 5, b.paintColor || '#2f8fae');
 }
 
 function drawBoss(){
@@ -1550,6 +2065,10 @@ function drawBoss(){
   }
   if(b.invuln > 0 && Math.floor(frame/3)%2===0) ctx.globalAlpha = 0.45;
 
+  if(level === 2){
+    drawVicenteBody(b);
+    ctx.restore();
+  }else{
   const walk = Math.floor(b.anim/9)%2;
   rr(18, 72+(walk?1:0), 9, 18, '#23232b');
   rr(37, 72+(walk?0:1), 9, 18, '#23232b');
@@ -1585,6 +2104,7 @@ function drawBoss(){
   rr(27, 21, 10, 3, '#d4374f');
   rr(26, 20, 2, 2, '#d4374f'); rr(37, 20, 2, 2, '#d4374f');
   ctx.restore();
+  }
 
   if(!b.dead && b.bubble > 20){
     const bx = b.x - camX + b.w/2;
@@ -1592,7 +2112,9 @@ function drawBoss(){
     ctx.fillStyle = '#ffffff';
     ctx.strokeStyle = '#1c1c28';
     ctx.lineWidth = 3;
-    const bw = 218, bh = 36;
+    const txt = level === 1 ? '¡Necesito fotocopias!' : '¡Esto necesita más color!';
+    ctx.font = 'bold 17px "Courier New", monospace';
+    const bw = Math.max(218, ctx.measureText(txt).width + 30), bh = 36;
     const rx = Math.max(8, Math.min(W-bw-8, bx - bw/2));
     ctx.beginPath();
     ctx.rect(rx, by, bw, bh);
@@ -1601,9 +2123,8 @@ function drawBoss(){
     ctx.moveTo(bx-8, by+bh); ctx.lineTo(bx+8, by+bh); ctx.lineTo(bx, by+bh+12);
     ctx.closePath(); ctx.fill(); ctx.stroke();
     ctx.fillStyle = '#1c1c28';
-    ctx.font = 'bold 17px "Courier New", monospace';
     ctx.textAlign = 'center';
-    ctx.fillText('¡Necesito fotocopias!', rx + bw/2, by + 24);
+    ctx.fillText(txt, rx + bw/2, by + 24);
     ctx.textAlign = 'left';
   }
 
@@ -1617,7 +2138,7 @@ function drawBoss(){
     ctx.fillRect(bx, by, bw * Math.max(0,b.hp)/b.maxHp, 10);
     ctx.fillStyle = '#fff6e8';
     ctx.font = 'bold 12px "Courier New", monospace';
-    ctx.fillText('PROFESORA DE LENGUA', bx, by + 22);
+    ctx.fillText(level === 1 ? 'PROFESORA DE LENGUA' : 'VICENTE · PLÁSTICA', bx, by + 22);
   }
 }
 
@@ -1640,7 +2161,10 @@ function drawHUD(){
   }
   if(player.power){
     ctx.fillStyle = '#ffe28a';
-    ctx.fillText('PODER: ZUMO+BOCATA (X/Z)', 178, 35);
+    const lbl = level === 1
+      ? 'PODER: ZUMO+BOCATA (X/Z)'
+      : (player.big ? 'ANTIVIRUS + HERRAMIENTAS (X/Z)' : 'HERRAMIENTAS (X/Z)');
+    ctx.fillText(lbl, 178, 35);
   }
 }
 
@@ -1663,7 +2187,7 @@ function draw(){
   ctx.save();
   ctx.translate(Math.round(sx), Math.round(sy2));
 
-  drawBackground();
+  if(level === 1) drawBackground(); else drawBackgroundL2();
 
   ctx.save();
   ctx.translate(-Math.round(camX), 0);
@@ -1671,7 +2195,7 @@ function draw(){
   for(const wt of worldTexts){
     ctx.fillStyle = 'rgba(16,20,43,0.5)';
     ctx.fillText(wt.t, wt.x+1, wt.y+1);
-    ctx.fillStyle = '#6e5a3e';
+    ctx.fillStyle = level === 1 ? '#6e5a3e' : '#23405a';
     ctx.fillText(wt.t, wt.x, wt.y);
   }
   ctx.restore();
@@ -1687,7 +2211,7 @@ function draw(){
   for(const s of shots) drawShot(s);
   for(const s of enemyShots) drawShot(s);
   for(const p of papers) drawPaper(p);
-  drawLuismi();
+  drawHero();
   drawKeysShield();
 
   for(const pa of particles){
@@ -1728,26 +2252,41 @@ function loop(){
   if(state === 'play' && !paused){
     update();
   }
-  if(state === 'play' || state === 'win' || state === 'over'){
+  if(state === 'play' || state === 'win' || state === 'over' || state === 'clear'){
     draw();
   }
   requestAnimationFrame(loop);
 }
 
-function startGame(){
+function startGame(n){
   audioInit();
+  loadLevel(n);
   initGame();
   scrStart.classList.add('hidden');
   scrOver.classList.add('hidden');
+  scrClear.classList.add('hidden');
   scrWin.classList.add('hidden');
   btnPause.classList.remove('hidden');
   state = 'play';
 }
 
-document.getElementById('btn-start').addEventListener('click', startGame);
-document.getElementById('btn-retry').addEventListener('click', startGame);
-document.getElementById('btn-again').addEventListener('click', startGame);
+function showMenu(){
+  state = 'menu';
+  paused = false;
+  btnPause.classList.add('hidden');
+  scrOver.classList.add('hidden');
+  scrClear.classList.add('hidden');
+  scrWin.classList.add('hidden');
+  scrStart.classList.remove('hidden');
+}
 
+document.getElementById('btn-start').addEventListener('click', ()=>startGame(1));
+document.getElementById('btn-start2').addEventListener('click', ()=>startGame(2));
+document.getElementById('btn-retry').addEventListener('click', ()=>startGame(level));
+document.getElementById('btn-next').addEventListener('click', ()=>startGame(2));
+document.getElementById('btn-again').addEventListener('click', showMenu);
+
+loadLevel(1);
 initGame();
 draw();
 requestAnimationFrame(loop);
